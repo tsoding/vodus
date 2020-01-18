@@ -4,15 +4,10 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#define FACE_FILE_PATH "/usr/share/fonts/opentype/comic-neue/ComicNeue_Oblique.otf"
-
 int save_bitmap_as_ppm(FT_Bitmap *bitmap,
-                       char prefix_char)
+                       const char *filename)
 {
     assert(bitmap->pixel_mode == FT_PIXEL_MODE_GRAY);
-
-    char filename[10];
-    snprintf(filename, 10, "%c.ppm", prefix_char);
 
     FILE *f = fopen(filename, "wb");
     if (!f) return -1;
@@ -37,8 +32,41 @@ int save_bitmap_as_ppm(FT_Bitmap *bitmap,
     return 0;
 }
 
+void slap_bitmap_onto_bitmap(FT_Bitmap *dest,
+                             FT_Bitmap *src,
+                             int x, int y)
+{
+    assert(dest);
+    assert(dest->pixel_mode == FT_PIXEL_MODE_GRAY);
+    assert(src);
+    assert(src->pixel_mode == FT_PIXEL_MODE_GRAY);
+
+    for (int row = 0;
+         (row < src->rows) && (row + y < dest->rows);
+         ++row) {
+        for (int col = 0;
+             (col < src->width) && (col + x < dest->width);
+             ++col) {
+            dest->buffer[(row + y) * dest->pitch + col + x] =
+                src->buffer[row * src->pitch + col];
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: ./vodus <text> [font]\n");
+        exit(1);
+    }
+
+    const char *text = argv[1];
+    const char *face_file_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
+
+    if (argc >= 3) {
+        face_file_path = argv[2];
+    }
+
     FT_Library library;
     auto error = FT_Init_FreeType(&library);
     if (error) {
@@ -48,22 +76,22 @@ int main(int argc, char *argv[])
 
     FT_Face face;
     error = FT_New_Face(library,
-                        FACE_FILE_PATH,
+                        face_file_path,
                         0,
                         &face);
     if (error == FT_Err_Unknown_File_Format) {
         fprintf(stderr,
                 "%s appears to have an unsuppoted format\n",
-                FACE_FILE_PATH);
+                face_file_path);
         exit(1);
     } else if (error) {
         fprintf(stderr,
                 "%s could not be opened\n",
-                FACE_FILE_PATH);
+                face_file_path);
         exit(1);
     }
 
-    printf("Loaded %s\n", FACE_FILE_PATH);
+    printf("Loaded %s\n", face_file_path);
     printf("\tnum_glyphs = %ld\n", face->num_glyphs);
 
     error = FT_Set_Pixel_Sizes(face, 0, 64);
@@ -72,36 +100,33 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    const char *text = "abcd";
-    while (*text != '\0') {
-        auto glyph_index = FT_Get_Char_Index(face, *text);
-        error = FT_Load_Glyph(
-            face,
-            glyph_index,
-            0);
+    FT_Bitmap surface;
+    surface.width = 800;
+    surface.pitch = 800;
+    surface.rows = 600;
+    surface.buffer = (unsigned char *) malloc(surface.width * surface.pitch);
+    surface.pixel_mode = FT_PIXEL_MODE_GRAY;
 
-        if (error) {
-            fprintf(stderr, "Could not load glyph for %c\n", *text);
-            exit(1);
-        }
 
-        error = FT_Render_Glyph(face->glyph,
-                                FT_RENDER_MODE_NORMAL);
-        if (error) {
-            fprintf(stderr, "Could not render glyph for %c\n", *text);
-            exit(1);
-        }
+    const size_t text_count = strlen(text);
+    int pen_x = 0, pen_y = 100;
+    for (int i = 0; i < text_count; ++i) {
+        FT_UInt glyph_index = FT_Get_Char_Index(face, text[i]);
 
-        printf("\t'%c'\n", *text);
-        printf("\t\tglyph_index: %ld\n", glyph_index);
-        printf("\t\trows: %ld\n", face->glyph->bitmap.rows);
-        printf("\t\twidth: %ld\n", face->glyph->bitmap.width);
-        printf("\t\tpixel_mode: %ld\n", face->glyph->bitmap.pixel_mode);
+        error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
+        assert(!error);
 
-        save_bitmap_as_ppm(&face->glyph->bitmap, *text);
+        error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+        assert(!error);
 
-        text++;
+        slap_bitmap_onto_bitmap(&surface, &face->glyph->bitmap,
+                                pen_x + face->glyph->bitmap_left,
+                                pen_y - face->glyph->bitmap_top);
+
+        pen_x += face->glyph->advance.x >> 6;
     }
+
+    save_bitmap_as_ppm(&surface, "output.ppm");
 
     return 0;
 }
