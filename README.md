@@ -5,5 +5,5 @@
 ```console
 $ sudo apt-get install libfreetype6-dev
 $ make
-$ ./vodus
+$ ./vodus 'Hello, World' ./font.ttf
 ```
