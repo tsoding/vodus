@@ -3,7 +3,7 @@
 ## Quick Start
 
 ```console
-$ sudo apt-get install libfreetype6-dev
+$ sudo apt-get install libfreetype6-dev libgif-dev
 $ make
 $ ./vodus 'Hello, World' ./font.ttf
 ```
