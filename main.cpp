@@ -20,6 +20,19 @@ struct Image32
     Pixel32 *pixels;
 };
 
+int save_image32_as_png(Image32 image, const char *filename)
+{
+    png_image pimage = {0};
+    pimage.width = image.width;
+    pimage.height = image.height;
+    pimage.version = PNG_IMAGE_VERSION;
+    pimage.format = PNG_FORMAT_RGBA;
+
+    return png_image_write_to_file(&pimage,
+                                   filename, 0, image.pixels,
+                                   0, nullptr);
+}
+
 int save_image32_as_ppm(Image32 image, const char *filename)
 {
     FILE *f = fopen(filename, "wb");
@@ -44,6 +57,13 @@ int save_image32_as_ppm(Image32 image, const char *filename)
     fclose(f);
 
     return 0;
+}
+
+void fill_image32_with_color(Image32 image, Pixel32 color)
+{
+    size_t n = image.width * image.height;
+    for (size_t i = 0; i < n; ++i)
+        image.pixels[i] = color;
 }
 
 void slap_onto_image32(Image32 dest, FT_Bitmap *src, int x, int y)
@@ -231,11 +251,12 @@ int main(int argc, char *argv[])
     assert(error == 0);
     DGifSlurp(gif_file);
 
-    Image32 surface;
+    Image32 surface = {0};
     surface.width = 800;
     surface.height = 600;
     surface.pixels = (Pixel32 *) malloc(surface.width * surface.height * sizeof(Pixel32));
     assert(surface.pixels);
+    fill_image32_with_color(surface, {0, 0, 0, 255});
 
     const size_t text_count = strlen(text);
     int pen_x = 0, pen_y = 100;
@@ -266,7 +287,7 @@ int main(int argc, char *argv[])
                       load_image32_from_png(png_filepath),
                       0, 200);
 
-    save_image32_as_ppm(surface, "output.ppm");
+    save_image32_as_png(surface, "output.png");
 
     return 0;
 }
