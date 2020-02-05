@@ -79,11 +79,13 @@ void slap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y
              (col < src->width) && (col + x < dest.width);
              ++col) {
             float a = src->buffer[row * src->pitch + col] / 255.0f;
-            dest.pixels[(row + y) * dest.width + col + x].r = color.r;
-            dest.pixels[(row + y) * dest.width + col + x].g = color.g;
-            dest.pixels[(row + y) * dest.width + col + x].b = color.b;
-            dest.pixels[(row + y) * dest.width + col + x].a =
-                (uint8_t) roundf(color.a * a);
+            dest.pixels[(row + y) * dest.width + col + x].r =
+                a * color.r + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].r;
+            dest.pixels[(row + y) * dest.width + col + x].g =
+                a * color.g + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].g;
+            dest.pixels[(row + y) * dest.width + col + x].b =
+                a * color.b + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].b;
+            // TODO: how do we mix alphas?
         }
     }
 }
@@ -226,6 +228,11 @@ void slap_text_onto_image32(Image32 surface,
     }
 }
 
+#define VODUS_FPS 60
+#define VODUS_DELTA_TIME (1.0f / VODUS_FPS)
+#define VODUS_WIDTH 690
+#define VODUS_HEIGHT 420
+
 int main(int argc, char *argv[])
 {
     if (argc < 3) {
@@ -284,25 +291,49 @@ int main(int argc, char *argv[])
     DGifSlurp(gif_file);
 
     Image32 surface = {0};
-    surface.width = 800;
-    surface.height = 600;
+    surface.width = VODUS_WIDTH;
+    surface.height = VODUS_HEIGHT;
     surface.pixels = (Pixel32 *) malloc(surface.width * surface.height * sizeof(Pixel32));
     assert(surface.pixels);
-    fill_image32_with_color(surface, {0, 0, 0, 0});
+
+    float text_x = 0.0f;
+    float text_y = VODUS_HEIGHT;
+
+#define DURATION 5.0f
+    // TODO: proper gif timings should be taken from the gif file itself
+#define GIF_DURATION 2.0f
+    char filename[256];
+
+    float gif_dt = GIF_DURATION / gif_file->ImageCount;
+    float t = 0.0f;
+
+    for (size_t i = 0; text_y > 0.0f; ++i) {
+        fill_image32_with_color(surface, {50, 0, 0, 255});
+
+        size_t gif_index = (int)(t / gif_dt) % gif_file->ImageCount;
+
+        assert(gif_file->ImageCount > 0);
+        slap_onto_image32(surface,
+                          &gif_file->SavedImages[gif_index],
+                          gif_file->SColorMap,
+                          (int) text_x, (int) text_y);
+        slap_onto_image32(surface,
+                          load_image32_from_png(png_filepath),
+                          (int) text_x + gif_file->SavedImages[gif_index].ImageDesc.Width, (int) text_y);
+
+        slap_text_onto_image32(surface, face, text, {0, 255, 0, 255},
+                               (int) text_x, (int) text_y);
+
+        text_y -= (VODUS_HEIGHT / DURATION) * VODUS_DELTA_TIME;
+
+        snprintf(filename, 256, "output/frame-%04lu.png", i);
+        printf("Rendering frame: %s\n", filename);
+        save_image32_as_png(surface, filename);
+
+        t += VODUS_DELTA_TIME;
+    }
 
     slap_text_onto_image32(surface, face, text, {150, 60, 76, 255}, 0, 100);
-
-    assert(gif_file->ImageCount > 0);
-    slap_onto_image32(surface,
-                      &gif_file->SavedImages[0],
-                      gif_file->SColorMap,
-                      0, 0);
-
-    slap_onto_image32(surface,
-                      load_image32_from_png(png_filepath),
-                      0, 200);
-
-    save_image32_as_png(surface, "output.png");
 
     return 0;
 }
