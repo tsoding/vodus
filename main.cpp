@@ -7,6 +7,8 @@
 
 #include <gif_lib.h>
 
+#include <png.h>
+
 struct Pixel32
 {
     uint8_t r, g, b, a;
@@ -18,7 +20,7 @@ struct Image32
     Pixel32 *pixels;
 };
 
-int save_image32_as_ppm(Image32 *image, const char *filename)
+int save_image32_as_ppm(Image32 image, const char *filename)
 {
     FILE *f = fopen(filename, "wb");
     if (!f) return -1;
@@ -27,12 +29,12 @@ int save_image32_as_ppm(Image32 *image, const char *filename)
             "P6\n"
             "%d %d\n"
             "255\n",
-            image->width,
-            image->height);
+            image.width,
+            image.height);
 
-    for (int row = 0; row < image->height; ++row) {
-        for (int col = 0; col < image->width; ++col) {
-            Pixel32 p = *(image->pixels + image->width * row + col);
+    for (int row = 0; row < image.height; ++row) {
+        for (int col = 0; col < image.width; ++col) {
+            Pixel32 p = *(image.pixels + image.width * row + col);
             fputc(p.r, f);
             fputc(p.g, f);
             fputc(p.b, f);
@@ -44,24 +46,38 @@ int save_image32_as_ppm(Image32 *image, const char *filename)
     return 0;
 }
 
-void slap_onto_image32(Image32 *dest, FT_Bitmap *src, int x, int y)
+void slap_onto_image32(Image32 dest, FT_Bitmap *src, int x, int y)
 {
     for (int row = 0;
-         (row < src->rows) && (row + y < dest->height);
+         (row < src->rows) && (row + y < dest.height);
          ++row) {
         for (int col = 0;
-             (col < src->width) && (col + x < dest->width);
+             (col < src->width) && (col + x < dest.width);
              ++col) {
-            dest->pixels[(row + y) * dest->width + col + x].r =
+            dest.pixels[(row + y) * dest.width + col + x].r =
                 src->buffer[row * src->pitch + col];
-            dest->pixels[(row + y) * dest->width + col + x].g = 0;
-            dest->pixels[(row + y) * dest->width + col + x].b = 0;
+            dest.pixels[(row + y) * dest.width + col + x].g = 0;
+            dest.pixels[(row + y) * dest.width + col + x].b = 0;
+        }
+    }
+}
+
+void slap_onto_image32(Image32 dest, Image32 src, int x, int y)
+{
+    for (int row = 0;
+         (row < src.height) && (row + y < dest.height);
+         ++row) {
+        for (int col = 0;
+             (col < src.width) && (col + x < dest.width);
+             ++col) {
+            dest.pixels[(row + y) * dest.width + col + x] =
+                src.pixels[row * src.height + col];
         }
     }
 }
 
 // TODO: slap_onto_image32 for libgif SavedImage does not support transparency
-void slap_onto_image32(Image32 *dest,
+void slap_onto_image32(Image32 dest,
                        SavedImage *src,
                        ColorMapObject *SColorMap,
                        int x, int y)
@@ -74,16 +90,16 @@ void slap_onto_image32(Image32 *dest,
     assert(src->ImageDesc.Top == 0);
 
     for (int row = 0;
-         (row < src->ImageDesc.Height) && (row + y < dest->height);
+         (row < src->ImageDesc.Height) && (row + y < dest.height);
          ++row) {
         for (int col = 0;
-             (col < src->ImageDesc.Width) && (col + x < dest->width);
+             (col < src->ImageDesc.Width) && (col + x < dest.width);
              ++col) {
             auto pixel =
                 SColorMap->Colors[src->RasterBits[row * src->ImageDesc.Width + col]];
-            dest->pixels[(row + y) * dest->width + col + x].r = pixel.Red;
-            dest->pixels[(row + y) * dest->width + col + x].g = pixel.Green;
-            dest->pixels[(row + y) * dest->width + col + x].b = pixel.Blue;
+            dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
+            dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
+            dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
         }
     }
 }
@@ -137,19 +153,41 @@ void slap_bitmap_onto_bitmap(FT_Bitmap *dest,
     }
 }
 
+Image32 load_image32_from_png(const char *filepath)
+{
+    png_image image = {0};
+    image.version = PNG_IMAGE_VERSION;
+    png_image_begin_read_from_file(&image, filepath);
+
+    image.format = PNG_FORMAT_RGBA;
+    Pixel32 *buffer = (Pixel32 *)malloc(sizeof(Pixel32) * image.width * image.height);
+    png_image_finish_read(&image, NULL, buffer, 0, NULL);
+
+    Image32 result = {
+        .pixels = buffer,
+        .width = image.width,
+        .height = image.height
+    };
+
+    png_image_free(&image);
+
+    return result;
+}
+
 int main(int argc, char *argv[])
 {
     if (argc < 3) {
-        fprintf(stderr, "Usage: ./vodus <text> <gif_image> [font]\n");
+        fprintf(stderr, "Usage: ./vodus <text> <gif_image> <png_image> [font]\n");
         exit(1);
     }
 
     const char *text = argv[1];
     const char *gif_filepath = argv[2];
+    const char *png_filepath = argv[3];
     const char *face_file_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
 
-    if (argc >= 4) {
-        face_file_path = argv[3];
+    if (argc >= 5) {
+        face_file_path = argv[4];
     }
 
     FT_Library library;
@@ -210,7 +248,7 @@ int main(int argc, char *argv[])
         error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
         assert(!error);
 
-        slap_onto_image32(&surface, &face->glyph->bitmap,
+        slap_onto_image32(surface, &face->glyph->bitmap,
                           pen_x + face->glyph->bitmap_left,
                           pen_y - face->glyph->bitmap_top);
 
@@ -218,12 +256,17 @@ int main(int argc, char *argv[])
     }
 
     assert(gif_file->ImageCount > 0);
-    slap_onto_image32(&surface,
+
+    slap_onto_image32(surface,
                       &gif_file->SavedImages[0],
                       gif_file->SColorMap,
                       0, 0);
 
-    save_image32_as_ppm(&surface, "output.ppm");
+    slap_onto_image32(surface,
+                      load_image32_from_png(png_filepath),
+                      0, 200);
+
+    save_image32_as_ppm(surface, "output.ppm");
 
     return 0;
 }
