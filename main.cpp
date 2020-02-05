@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdint>
+#include <cmath>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -66,18 +67,23 @@ void fill_image32_with_color(Image32 image, Pixel32 color)
         image.pixels[i] = color;
 }
 
-void slap_onto_image32(Image32 dest, FT_Bitmap *src, int x, int y)
+void slap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y)
 {
+    assert(src->pixel_mode == FT_PIXEL_MODE_GRAY);
+    assert(src->num_grays == 256);
+
     for (int row = 0;
          (row < src->rows) && (row + y < dest.height);
          ++row) {
         for (int col = 0;
              (col < src->width) && (col + x < dest.width);
              ++col) {
-            dest.pixels[(row + y) * dest.width + col + x].r =
-                src->buffer[row * src->pitch + col];
-            dest.pixels[(row + y) * dest.width + col + x].g = 0;
-            dest.pixels[(row + y) * dest.width + col + x].b = 0;
+            float a = src->buffer[row * src->pitch + col] / 255.0f;
+            dest.pixels[(row + y) * dest.width + col + x].r = color.r;
+            dest.pixels[(row + y) * dest.width + col + x].g = color.g;
+            dest.pixels[(row + y) * dest.width + col + x].b = color.b;
+            dest.pixels[(row + y) * dest.width + col + x].a =
+                (uint8_t) roundf(color.a * a);
         }
     }
 }
@@ -194,6 +200,32 @@ Image32 load_image32_from_png(const char *filepath)
     return result;
 }
 
+void slap_text_onto_image32(Image32 surface,
+                            FT_Face face,
+                            const char *text,
+                            Pixel32 color,
+                            int x, int y)
+{
+    const size_t text_count = strlen(text);
+    int pen_x = x, pen_y = y;
+    for (int i = 0; i < text_count; ++i) {
+        FT_UInt glyph_index = FT_Get_Char_Index(face, text[i]);
+
+        auto error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
+        assert(!error);
+
+        error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+        assert(!error);
+
+        slap_onto_image32(surface, &face->glyph->bitmap,
+                          color,
+                          pen_x + face->glyph->bitmap_left,
+                          pen_y - face->glyph->bitmap_top);
+
+        pen_x += face->glyph->advance.x >> 6;
+    }
+}
+
 int main(int argc, char *argv[])
 {
     if (argc < 3) {
@@ -256,28 +288,11 @@ int main(int argc, char *argv[])
     surface.height = 600;
     surface.pixels = (Pixel32 *) malloc(surface.width * surface.height * sizeof(Pixel32));
     assert(surface.pixels);
-    fill_image32_with_color(surface, {0, 0, 0, 255});
+    fill_image32_with_color(surface, {0, 0, 0, 0});
 
-    const size_t text_count = strlen(text);
-    int pen_x = 0, pen_y = 100;
-    for (int i = 0; i < text_count; ++i) {
-        FT_UInt glyph_index = FT_Get_Char_Index(face, text[i]);
-
-        error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
-        assert(!error);
-
-        error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-        assert(!error);
-
-        slap_onto_image32(surface, &face->glyph->bitmap,
-                          pen_x + face->glyph->bitmap_left,
-                          pen_y - face->glyph->bitmap_top);
-
-        pen_x += face->glyph->advance.x >> 6;
-    }
+    slap_text_onto_image32(surface, face, text, {150, 60, 76, 255}, 0, 100);
 
     assert(gif_file->ImageCount > 0);
-
     slap_onto_image32(surface,
                       &gif_file->SavedImages[0],
                       gif_file->SColorMap,
