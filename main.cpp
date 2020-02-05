@@ -72,34 +72,34 @@ void slap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y
     assert(src->pixel_mode == FT_PIXEL_MODE_GRAY);
     assert(src->num_grays == 256);
 
-    for (int row = 0;
-         (row < src->rows) && (row + y < dest.height);
-         ++row) {
-        for (int col = 0;
-             (col < src->width) && (col + x < dest.width);
-             ++col) {
-            float a = src->buffer[row * src->pitch + col] / 255.0f;
-            dest.pixels[(row + y) * dest.width + col + x].r =
-                a * color.r + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].r;
-            dest.pixels[(row + y) * dest.width + col + x].g =
-                a * color.g + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].g;
-            dest.pixels[(row + y) * dest.width + col + x].b =
-                a * color.b + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].b;
-            // TODO: how do we mix alphas?
+    for (int row = 0; (row < src->rows); ++row) {
+        if (row + y < dest.height) {
+            for (int col = 0; (col < src->width); ++col) {
+                if (col + x < dest.width) {
+                    float a = src->buffer[row * src->pitch + col] / 255.0f;
+                    dest.pixels[(row + y) * dest.width + col + x].r =
+                        a * color.r + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].r;
+                    dest.pixels[(row + y) * dest.width + col + x].g =
+                        a * color.g + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].g;
+                    dest.pixels[(row + y) * dest.width + col + x].b =
+                        a * color.b + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].b;
+                }
+                // TODO: how do we mix alphas?
+            }
         }
     }
 }
 
 void slap_onto_image32(Image32 dest, Image32 src, int x, int y)
 {
-    for (int row = 0;
-         (row < src.height) && (row + y < dest.height);
-         ++row) {
-        for (int col = 0;
-             (col < src.width) && (col + x < dest.width);
-             ++col) {
-            dest.pixels[(row + y) * dest.width + col + x] =
-                src.pixels[row * src.height + col];
+    for (int row = 0; (row < src.height); ++row) {
+        if (row + y < dest.height) {
+            for (int col = 0; (col < src.width); ++col) {
+                if (col + x < dest.width) {
+                    dest.pixels[(row + y) * dest.width + col + x] =
+                        src.pixels[row * src.height + col];
+                }
+            }
         }
     }
 }
@@ -117,17 +117,17 @@ void slap_onto_image32(Image32 dest,
     assert(src->ImageDesc.Left == 0);
     assert(src->ImageDesc.Top == 0);
 
-    for (int row = 0;
-         (row < src->ImageDesc.Height) && (row + y < dest.height);
-         ++row) {
-        for (int col = 0;
-             (col < src->ImageDesc.Width) && (col + x < dest.width);
-             ++col) {
-            auto pixel =
-                SColorMap->Colors[src->RasterBits[row * src->ImageDesc.Width + col]];
-            dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
-            dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
-            dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
+    for (int row = 0; (row < src->ImageDesc.Height); ++row) {
+        if (row + y < dest.height) {
+            for (int col = 0; (col < src->ImageDesc.Width); ++col) {
+                if (col + x < dest.width) {
+                    auto pixel =
+                        SColorMap->Colors[src->RasterBits[row * src->ImageDesc.Width + col]];
+                    dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
+                    dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
+                    dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
+                }
+            }
         }
     }
 }
@@ -169,14 +169,16 @@ void slap_bitmap_onto_bitmap(FT_Bitmap *dest,
     assert(src);
     assert(src->pixel_mode == FT_PIXEL_MODE_GRAY);
 
-    for (int row = 0;
-         (row < src->rows) && (row + y < dest->rows);
-         ++row) {
-        for (int col = 0;
-             (col < src->width) && (col + x < dest->width);
-             ++col) {
-            dest->buffer[(row + y) * dest->pitch + col + x] =
-                src->buffer[row * src->pitch + col];
+    for (int row = 0; (row < src->rows); ++row) {
+        if(row + y < dest->rows) {
+            for (int col = 0;
+                 (col < src->width);
+                 ++col) {
+                if (col + x < dest->width) {
+                    dest->buffer[(row + y) * dest->pitch + col + x] =
+                        src->buffer[row * src->pitch + col];
+                }
+            }
         }
     }
 }
