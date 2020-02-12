@@ -14,4 +14,4 @@ output.mp4: vodus
 	rm -rfv output/
 	mkdir -p output/
 	./vodus 'Chat! Vy r u ded?' phpHop.gif gasm.png > /dev/null
-	ffmpeg -y -framerate 60 -i 'output/frame-%04d.png' output.mp4
+	ffmpeg -y -framerate 60 -i 'output/%04d.png' output.mp4
