@@ -3,12 +3,35 @@
 #include <cstdint>
 #include <cmath>
 
+#include <atomic>
+
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
 #include <gif_lib.h>
 
 #include <png.h>
+
+#include <pthread.h>
+
+template <typename F>
+struct Defer
+{
+    Defer(F f):
+        f(f)
+    {}
+
+    ~Defer()
+    {
+        f();
+    }
+
+    F f;
+};
+
+#define CONCAT0(a, b) a##b
+#define CONCAT(a, b) CONCAT0(a, b)
+#define defer(body) Defer CONCAT(defer, __LINE__)([&]() { body; })
 
 struct Pixel32
 {
@@ -230,10 +253,98 @@ void slap_text_onto_image32(Image32 surface,
     }
 }
 
-#define VODUS_FPS 60
-#define VODUS_DELTA_TIME (1.0f / VODUS_FPS)
-#define VODUS_WIDTH 690
-#define VODUS_HEIGHT 420
+constexpr size_t VODUS_FPS = 60;
+constexpr float VODUS_DELTA_TIME = 1.0f / VODUS_FPS;
+constexpr size_t VODUS_WIDTH = 1920;
+constexpr size_t VODUS_HEIGHT = 1080;
+constexpr size_t VODUS_QUEUE_CAPACITY = 1024;
+constexpr float VODUS_VIDEO_DURATION = 5.0f;
+constexpr size_t VODUS_OUTPUT_THREAD_COUNT = 4;
+
+Image32 frame_arena[VODUS_QUEUE_CAPACITY];
+std::atomic_size_t frame_arena_size = VODUS_QUEUE_CAPACITY;
+
+void init_frame_arena(void)
+{
+    for (size_t i = 0; i < VODUS_QUEUE_CAPACITY; ++i) {
+        frame_arena[i].width = VODUS_WIDTH;
+        frame_arena[i].height = VODUS_HEIGHT;
+        frame_arena[i].pixels =
+            (Pixel32*) std::malloc(sizeof(Pixel32) * VODUS_WIDTH * VODUS_HEIGHT);
+    }
+}
+
+Image32 alloc_frame(void)
+{
+    return frame_arena[--frame_arena_size];
+}
+
+void dealloc_frame(Image32 frame)
+{
+    frame_arena[frame_arena_size++] = frame;
+}
+
+Image32 queue[VODUS_QUEUE_CAPACITY];
+size_t queue_begin = 0;
+size_t queue_size = 0;
+
+pthread_mutex_t queue_mutex;
+pthread_t output_threads[VODUS_OUTPUT_THREAD_COUNT];
+int frame_count = 0;
+
+bool enqueue(Image32 frame)
+{
+    pthread_mutex_lock(&queue_mutex);
+    defer(pthread_mutex_unlock(&queue_mutex));
+
+    if (queue_size >= VODUS_QUEUE_CAPACITY) {
+        return false;
+    }
+
+    queue[(queue_begin + queue_size) % VODUS_QUEUE_CAPACITY] = frame;
+    queue_size += 1;
+    return true;
+}
+
+Image32 dequeue(int *current_frame_count)
+{
+    pthread_mutex_lock(&queue_mutex);
+    defer(pthread_mutex_unlock(&queue_mutex));
+
+    if (queue_size == 0) {
+        return {0, 0, nullptr};
+    }
+
+    Image32 result = queue[queue_begin % VODUS_QUEUE_CAPACITY];
+    queue_size -= 1;
+    queue_begin += 1;
+    if (current_frame_count) *current_frame_count = frame_count++;
+
+    return result;
+}
+
+std::atomic_bool stop_output_threads = false;
+
+void *output_thread_routine(void*)
+{
+    constexpr size_t FILE_PATH_CAPACITY = 256;
+    char file_path[FILE_PATH_CAPACITY];
+
+    for (;;) {
+        int frame_count;
+        Image32 frame = dequeue(&frame_count);
+        if (frame.pixels == nullptr) {
+            if (stop_output_threads.load()) {
+                return nullptr;
+            }
+            continue;
+        }
+
+        snprintf(file_path, FILE_PATH_CAPACITY, "output/%04d.png", frame_count++);
+        save_image32_as_png(frame, file_path);
+        dealloc_frame(frame);
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -292,26 +403,27 @@ int main(int argc, char *argv[])
     assert(error == 0);
     DGifSlurp(gif_file);
 
-    Image32 surface = {0};
-    surface.width = VODUS_WIDTH;
-    surface.height = VODUS_HEIGHT;
-    surface.pixels = (Pixel32 *) malloc(surface.width * surface.height * sizeof(Pixel32));
-    assert(surface.pixels);
-
     float text_x = 0.0f;
     float text_y = VODUS_HEIGHT;
 
-#define DURATION 5.0f
     // TODO: proper gif timings should be taken from the gif file itself
-#define GIF_DURATION 2.0f
-    char filename[256];
+    constexpr float GIF_DURATION = 2.0f;
 
     float gif_dt = GIF_DURATION / gif_file->ImageCount;
     float t = 0.0f;
 
     Image32 png_sample_image = load_image32_from_png(png_filepath);
 
-    for (size_t i = 0; text_y > 0.0f; ++i) {
+    pthread_mutex_init(&queue_mutex, nullptr);
+    init_frame_arena();
+
+    for (size_t i = 0; i < VODUS_OUTPUT_THREAD_COUNT; ++i) {
+        pthread_create(output_threads + i, nullptr, output_thread_routine, nullptr);
+    }
+
+    while (text_y > 0.0f) {
+        Image32 surface = alloc_frame();
+
         fill_image32_with_color(surface, {50, 0, 0, 255});
 
         size_t gif_index = (int)(t / gif_dt) % gif_file->ImageCount;
@@ -328,16 +440,17 @@ int main(int argc, char *argv[])
         slap_text_onto_image32(surface, face, text, {0, 255, 0, 255},
                                (int) text_x, (int) text_y);
 
-        text_y -= (VODUS_HEIGHT / DURATION) * VODUS_DELTA_TIME;
+        while (!enqueue(surface)) {}
 
-        snprintf(filename, 256, "output/frame-%04lu.png", i);
-        printf("Rendering frame: %s\n", filename);
-        save_image32_as_png(surface, filename);
-
+        text_y -= (VODUS_HEIGHT / VODUS_VIDEO_DURATION) * VODUS_DELTA_TIME;
         t += VODUS_DELTA_TIME;
     }
+    stop_output_threads.store(true);
+    printf("Finished rendering. Waiting for the output thread.\n");
 
-    slap_text_onto_image32(surface, face, text, {150, 60, 76, 255}, 0, 100);
+    for (size_t i = 0; i < VODUS_OUTPUT_THREAD_COUNT; ++i) {
+        pthread_join(output_threads[i], nullptr);
+    }
 
     return 0;
 }
