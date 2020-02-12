@@ -309,6 +309,8 @@ int main(int argc, char *argv[])
     float gif_dt = GIF_DURATION / gif_file->ImageCount;
     float t = 0.0f;
 
+    Image32 png_sample_image = load_image32_from_png(png_filepath);
+
     for (size_t i = 0; text_y > 0.0f; ++i) {
         fill_image32_with_color(surface, {50, 0, 0, 255});
 
@@ -320,7 +322,7 @@ int main(int argc, char *argv[])
                           gif_file->SColorMap,
                           (int) text_x, (int) text_y);
         slap_onto_image32(surface,
-                          load_image32_from_png(png_filepath),
+                          png_sample_image,
                           (int) text_x + gif_file->SavedImages[gif_index].ImageDesc.Width, (int) text_y);
 
         slap_text_onto_image32(surface, face, text, {0, 255, 0, 255},
