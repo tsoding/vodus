@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdint>
+#include <cmath>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -66,32 +67,39 @@ void fill_image32_with_color(Image32 image, Pixel32 color)
         image.pixels[i] = color;
 }
 
-void slap_onto_image32(Image32 dest, FT_Bitmap *src, int x, int y)
+void slap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y)
 {
-    for (int row = 0;
-         (row < src->rows) && (row + y < dest.height);
-         ++row) {
-        for (int col = 0;
-             (col < src->width) && (col + x < dest.width);
-             ++col) {
-            dest.pixels[(row + y) * dest.width + col + x].r =
-                src->buffer[row * src->pitch + col];
-            dest.pixels[(row + y) * dest.width + col + x].g = 0;
-            dest.pixels[(row + y) * dest.width + col + x].b = 0;
+    assert(src->pixel_mode == FT_PIXEL_MODE_GRAY);
+    assert(src->num_grays == 256);
+
+    for (int row = 0; (row < src->rows); ++row) {
+        if (row + y < dest.height) {
+            for (int col = 0; (col < src->width); ++col) {
+                if (col + x < dest.width) {
+                    float a = src->buffer[row * src->pitch + col] / 255.0f;
+                    dest.pixels[(row + y) * dest.width + col + x].r =
+                        a * color.r + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].r;
+                    dest.pixels[(row + y) * dest.width + col + x].g =
+                        a * color.g + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].g;
+                    dest.pixels[(row + y) * dest.width + col + x].b =
+                        a * color.b + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].b;
+                }
+                // TODO: how do we mix alphas?
+            }
         }
     }
 }
 
 void slap_onto_image32(Image32 dest, Image32 src, int x, int y)
 {
-    for (int row = 0;
-         (row < src.height) && (row + y < dest.height);
-         ++row) {
-        for (int col = 0;
-             (col < src.width) && (col + x < dest.width);
-             ++col) {
-            dest.pixels[(row + y) * dest.width + col + x] =
-                src.pixels[row * src.height + col];
+    for (int row = 0; (row < src.height); ++row) {
+        if (row + y < dest.height) {
+            for (int col = 0; (col < src.width); ++col) {
+                if (col + x < dest.width) {
+                    dest.pixels[(row + y) * dest.width + col + x] =
+                        src.pixels[row * src.height + col];
+                }
+            }
         }
     }
 }
@@ -109,17 +117,17 @@ void slap_onto_image32(Image32 dest,
     assert(src->ImageDesc.Left == 0);
     assert(src->ImageDesc.Top == 0);
 
-    for (int row = 0;
-         (row < src->ImageDesc.Height) && (row + y < dest.height);
-         ++row) {
-        for (int col = 0;
-             (col < src->ImageDesc.Width) && (col + x < dest.width);
-             ++col) {
-            auto pixel =
-                SColorMap->Colors[src->RasterBits[row * src->ImageDesc.Width + col]];
-            dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
-            dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
-            dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
+    for (int row = 0; (row < src->ImageDesc.Height); ++row) {
+        if (row + y < dest.height) {
+            for (int col = 0; (col < src->ImageDesc.Width); ++col) {
+                if (col + x < dest.width) {
+                    auto pixel =
+                        SColorMap->Colors[src->RasterBits[row * src->ImageDesc.Width + col]];
+                    dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
+                    dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
+                    dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
+                }
+            }
         }
     }
 }
@@ -161,14 +169,16 @@ void slap_bitmap_onto_bitmap(FT_Bitmap *dest,
     assert(src);
     assert(src->pixel_mode == FT_PIXEL_MODE_GRAY);
 
-    for (int row = 0;
-         (row < src->rows) && (row + y < dest->rows);
-         ++row) {
-        for (int col = 0;
-             (col < src->width) && (col + x < dest->width);
-             ++col) {
-            dest->buffer[(row + y) * dest->pitch + col + x] =
-                src->buffer[row * src->pitch + col];
+    for (int row = 0; (row < src->rows); ++row) {
+        if(row + y < dest->rows) {
+            for (int col = 0;
+                 (col < src->width);
+                 ++col) {
+                if (col + x < dest->width) {
+                    dest->buffer[(row + y) * dest->pitch + col + x] =
+                        src->buffer[row * src->pitch + col];
+                }
+            }
         }
     }
 }
@@ -193,6 +203,37 @@ Image32 load_image32_from_png(const char *filepath)
 
     return result;
 }
+
+void slap_text_onto_image32(Image32 surface,
+                            FT_Face face,
+                            const char *text,
+                            Pixel32 color,
+                            int x, int y)
+{
+    const size_t text_count = strlen(text);
+    int pen_x = x, pen_y = y;
+    for (int i = 0; i < text_count; ++i) {
+        FT_UInt glyph_index = FT_Get_Char_Index(face, text[i]);
+
+        auto error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
+        assert(!error);
+
+        error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+        assert(!error);
+
+        slap_onto_image32(surface, &face->glyph->bitmap,
+                          color,
+                          pen_x + face->glyph->bitmap_left,
+                          pen_y - face->glyph->bitmap_top);
+
+        pen_x += face->glyph->advance.x >> 6;
+    }
+}
+
+#define VODUS_FPS 60
+#define VODUS_DELTA_TIME (1.0f / VODUS_FPS)
+#define VODUS_WIDTH 690
+#define VODUS_HEIGHT 420
 
 int main(int argc, char *argv[])
 {
@@ -252,42 +293,49 @@ int main(int argc, char *argv[])
     DGifSlurp(gif_file);
 
     Image32 surface = {0};
-    surface.width = 800;
-    surface.height = 600;
+    surface.width = VODUS_WIDTH;
+    surface.height = VODUS_HEIGHT;
     surface.pixels = (Pixel32 *) malloc(surface.width * surface.height * sizeof(Pixel32));
     assert(surface.pixels);
-    fill_image32_with_color(surface, {0, 0, 0, 255});
 
-    const size_t text_count = strlen(text);
-    int pen_x = 0, pen_y = 100;
-    for (int i = 0; i < text_count; ++i) {
-        FT_UInt glyph_index = FT_Get_Char_Index(face, text[i]);
+    float text_x = 0.0f;
+    float text_y = VODUS_HEIGHT;
 
-        error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
-        assert(!error);
+#define DURATION 5.0f
+    // TODO: proper gif timings should be taken from the gif file itself
+#define GIF_DURATION 2.0f
+    char filename[256];
 
-        error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-        assert(!error);
+    float gif_dt = GIF_DURATION / gif_file->ImageCount;
+    float t = 0.0f;
 
-        slap_onto_image32(surface, &face->glyph->bitmap,
-                          pen_x + face->glyph->bitmap_left,
-                          pen_y - face->glyph->bitmap_top);
+    for (size_t i = 0; text_y > 0.0f; ++i) {
+        fill_image32_with_color(surface, {50, 0, 0, 255});
 
-        pen_x += face->glyph->advance.x >> 6;
+        size_t gif_index = (int)(t / gif_dt) % gif_file->ImageCount;
+
+        assert(gif_file->ImageCount > 0);
+        slap_onto_image32(surface,
+                          &gif_file->SavedImages[gif_index],
+                          gif_file->SColorMap,
+                          (int) text_x, (int) text_y);
+        slap_onto_image32(surface,
+                          load_image32_from_png(png_filepath),
+                          (int) text_x + gif_file->SavedImages[gif_index].ImageDesc.Width, (int) text_y);
+
+        slap_text_onto_image32(surface, face, text, {0, 255, 0, 255},
+                               (int) text_x, (int) text_y);
+
+        text_y -= (VODUS_HEIGHT / DURATION) * VODUS_DELTA_TIME;
+
+        snprintf(filename, 256, "output/frame-%04lu.png", i);
+        printf("Rendering frame: %s\n", filename);
+        save_image32_as_png(surface, filename);
+
+        t += VODUS_DELTA_TIME;
     }
 
-    assert(gif_file->ImageCount > 0);
-
-    slap_onto_image32(surface,
-                      &gif_file->SavedImages[0],
-                      gif_file->SColorMap,
-                      0, 0);
-
-    slap_onto_image32(surface,
-                      load_image32_from_png(png_filepath),
-                      0, 200);
-
-    save_image32_as_png(surface, "output.png");
+    slap_text_onto_image32(surface, face, text, {150, 60, 76, 255}, 0, 100);
 
     return 0;
 }
