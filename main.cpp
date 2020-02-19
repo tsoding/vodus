@@ -14,6 +14,12 @@
 
 #include <pthread.h>
 
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavutil/opt.h>
+#include <libavutil/imgutils.h>
+}
+
 template <typename F>
 struct Defer
 {
@@ -28,6 +34,14 @@ struct Defer
 
     F f;
 };
+
+void avec(int code)
+{
+    if (code < 0) {
+        fprintf(stderr, "libavcodec pooped itself: %s\n", av_err2str(code));
+        exit(1);
+    }
+}
 
 #define CONCAT0(a, b) a##b
 #define CONCAT(a, b) CONCAT0(a, b)
@@ -346,7 +360,122 @@ void *output_thread_routine(void*)
     }
 }
 
+void encode(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE *outfile)
+{
+    if (frame) {
+        printf("Send frame %3" PRId64 "\n", frame->pts);
+    }
+
+    avec(avcodec_send_frame(context, frame));
+
+    for (int ret = 0; ret >= 0; ) {
+        ret = avcodec_receive_packet(context, pkt);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            return;
+        } else {
+            avec(ret);
+        }
+
+        printf("Write packet %3" PRId64 " (size=%5d)\n", pkt->pts, pkt->size);
+        fwrite(pkt->data, 1, pkt->size, outfile);
+        av_packet_unref(pkt);
+    }
+}
+
 int main(int argc, char *argv[])
+{
+    const char *filename = "output.mp4";
+
+    AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_MPEG2VIDEO);
+    if (!codec) {
+        fprintf(stderr, "codec not found\n");
+        exit(1);
+    }
+
+    AVCodecContext *context = avcodec_alloc_context3(codec);
+    if (!context) {
+        fprintf(stderr, "Could not allocate video codec context\n");
+        exit(1);
+    }
+    defer(avcodec_free_context(&context));
+
+    if (codec->id == AV_CODEC_ID_H264)
+        av_opt_set(context->priv_data, "preset", "slow", 0);
+
+    context->bit_rate = 400'000;
+    context->width = 690;     // resolution must be a multiple of two
+    context->height = 420;
+    context->time_base = (AVRational){1, 25};
+    context->framerate = (AVRational){25, 1};
+    context->gop_size = 10;
+    context->max_b_frames = 1;
+    context->pix_fmt = AV_PIX_FMT_YUV420P;
+
+    AVPacket *pkt = av_packet_alloc();
+    if (!pkt) {
+        fprintf(stderr, "Could not allocate packet\n");
+        exit(1);
+    }
+    defer(av_packet_free(&pkt));
+
+    avec(avcodec_open2(context, codec, NULL));
+
+    FILE *f = fopen(filename, "wb");
+    if (!f) {
+        fprintf(stderr, "Could not open %s\n", filename);
+        exit(1);
+    }
+    defer(fclose(f));
+
+    AVFrame *frame = av_frame_alloc();
+    if (!frame) {
+        fprintf(stderr, "Could not allocate video frame\n");
+        exit(1);
+    }
+    defer(av_frame_free(&frame));
+
+    frame->format = context->pix_fmt;
+    frame->width  = context->width;
+    frame->height = context->height;
+
+    avec(av_frame_get_buffer(frame, 32));
+
+    for (int i = 0; i < 25; ++i) {
+        fflush(stdout);
+
+
+        avec(av_frame_make_writable(frame));
+
+        // Prepare a dummy image
+        // Y
+        for (int y = 0; y < context->height; ++y) {
+            for (int x = 0; x < context->width; ++x) {
+                frame->data[0][y * frame->linesize[0] + x] = x + y + i * 3;
+            }
+        }
+
+        for (int y = 0; y < context->height / 2; ++y) {
+            for (int x = 0; x < context->width / 2; ++x) {
+                frame->data[1][y * frame->linesize[1] + x] = 128 + y + i * 2;
+                frame->data[2][y * frame->linesize[2] + x] = 64 + x + i * 5;
+            }
+        }
+
+        frame->pts = i;
+
+        encode(context, frame, pkt, f);
+    }
+
+    encode(context, NULL, pkt, f);
+
+    uint8_t endcode[] = { 0, 0, 1, 0xb7 };
+    if (codec->id == AV_CODEC_ID_MPEG1VIDEO || codec->id == AV_CODEC_ID_MPEG2VIDEO)
+        fwrite(endcode, 1, sizeof(endcode), f);
+
+    return 0;
+}
+
+int main2(int argc, char *argv[])
 {
     if (argc < 3) {
         fprintf(stderr, "Usage: ./vodus <text> <gif_image> <png_image> [font]\n");
