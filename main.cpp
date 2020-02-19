@@ -14,6 +14,12 @@
 
 #include <pthread.h>
 
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavutil/opt.h>
+#include <libavutil/imgutils.h>
+}
+
 template <typename F>
 struct Defer
 {
@@ -28,6 +34,28 @@ struct Defer
 
     F f;
 };
+
+void avec(int code)
+{
+    if (code < 0) {
+        fprintf(stderr, "ffmpeg pooped itself: %s\n", av_err2str(code));
+        exit(1);
+    }
+}
+
+template <typename T>
+T *fail_if_null(T *ptr, const char *format, ...)
+{
+    if (ptr == nullptr) {
+        va_list args;
+        va_start(args, format);
+        vfprintf(stderr, format, args);
+        va_end(args);
+        exit(1);
+    }
+
+    return ptr;
+}
 
 #define CONCAT0(a, b) a##b
 #define CONCAT(a, b) CONCAT0(a, b)
@@ -257,97 +285,52 @@ constexpr size_t VODUS_FPS = 60;
 constexpr float VODUS_DELTA_TIME = 1.0f / VODUS_FPS;
 constexpr size_t VODUS_WIDTH = 1920;
 constexpr size_t VODUS_HEIGHT = 1080;
-constexpr size_t VODUS_QUEUE_CAPACITY = 1024;
 constexpr float VODUS_VIDEO_DURATION = 5.0f;
-constexpr size_t VODUS_OUTPUT_THREAD_COUNT = 4;
 
-Image32 frame_arena[VODUS_QUEUE_CAPACITY];
-std::atomic_size_t frame_arena_size = VODUS_QUEUE_CAPACITY;
-
-void init_frame_arena(void)
+void encode(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE *outfile)
 {
-    for (size_t i = 0; i < VODUS_QUEUE_CAPACITY; ++i) {
-        frame_arena[i].width = VODUS_WIDTH;
-        frame_arena[i].height = VODUS_HEIGHT;
-        frame_arena[i].pixels =
-            (Pixel32*) std::malloc(sizeof(Pixel32) * VODUS_WIDTH * VODUS_HEIGHT);
-    }
-}
-
-Image32 alloc_frame(void)
-{
-    return frame_arena[--frame_arena_size];
-}
-
-void dealloc_frame(Image32 frame)
-{
-    frame_arena[frame_arena_size++] = frame;
-}
-
-Image32 queue[VODUS_QUEUE_CAPACITY];
-size_t queue_begin = 0;
-size_t queue_size = 0;
-
-pthread_mutex_t queue_mutex;
-pthread_t output_threads[VODUS_OUTPUT_THREAD_COUNT];
-int frame_count = 0;
-
-bool enqueue(Image32 frame)
-{
-    pthread_mutex_lock(&queue_mutex);
-    defer(pthread_mutex_unlock(&queue_mutex));
-
-    if (queue_size >= VODUS_QUEUE_CAPACITY) {
-        return false;
+    if (frame) {
+        printf("Send frame %3" PRId64 "\n", frame->pts);
     }
 
-    queue[(queue_begin + queue_size) % VODUS_QUEUE_CAPACITY] = frame;
-    queue_size += 1;
-    return true;
-}
+    avec(avcodec_send_frame(context, frame));
 
-Image32 dequeue(int *current_frame_count)
-{
-    pthread_mutex_lock(&queue_mutex);
-    defer(pthread_mutex_unlock(&queue_mutex));
-
-    if (queue_size == 0) {
-        return {0, 0, nullptr};
-    }
-
-    Image32 result = queue[queue_begin % VODUS_QUEUE_CAPACITY];
-    queue_size -= 1;
-    queue_begin += 1;
-    if (current_frame_count) *current_frame_count = frame_count++;
-
-    return result;
-}
-
-std::atomic_bool stop_output_threads = false;
-
-void *output_thread_routine(void*)
-{
-    constexpr size_t FILE_PATH_CAPACITY = 256;
-    char file_path[FILE_PATH_CAPACITY];
-
-    for (;;) {
-        int frame_count;
-        Image32 frame = dequeue(&frame_count);
-        if (frame.pixels == nullptr) {
-            if (stop_output_threads.load()) {
-                return nullptr;
-            }
-            continue;
+    for (int ret = 0; ret >= 0; ) {
+        ret = avcodec_receive_packet(context, pkt);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            return;
+        } else {
+            avec(ret);
         }
 
-        snprintf(file_path, FILE_PATH_CAPACITY, "output/%04d.png", frame_count++);
-        save_image32_as_png(frame, file_path);
-        dealloc_frame(frame);
+        printf("Write packet %3" PRId64 " (size=%5d)\n", pkt->pts, pkt->size);
+        fwrite(pkt->data, 1, pkt->size, outfile);
+        av_packet_unref(pkt);
+    }
+}
+
+void slap_image32_onto_avframe(Image32 frame_image32, AVFrame *avframe)
+{
+    assert(avframe->width == frame_image32.width);
+    assert(avframe->height == frame_image32.height);
+
+    for (int y = 0; y < avframe->height; ++y) {
+        for (int x = 0; x < avframe->width; ++x) {
+            Pixel32 p = frame_image32.pixels[y * frame_image32.width + x];
+            int Y =  (0.257 * p.r) + (0.504 * p.g) + (0.098 * p.b) + 16;
+            int V =  (0.439 * p.r) - (0.368 * p.g) - (0.071 * p.b) + 128;
+            int U = -(0.148 * p.r) - (0.291 * p.g) + (0.439 * p.b) + 128;
+            avframe->data[0][y        * avframe->linesize[0] + x]        = Y;
+            avframe->data[1][(y >> 1) * avframe->linesize[1] + (x >> 1)] = U;
+            avframe->data[2][(y >> 1) * avframe->linesize[2] + (x >> 1)] = V;
+        }
     }
 }
 
 int main(int argc, char *argv[])
 {
+    const char *output_filepath = "output.mp4";
+
     if (argc < 3) {
         fprintf(stderr, "Usage: ./vodus <text> <gif_image> <png_image> [font]\n");
         exit(1);
@@ -413,17 +396,56 @@ int main(int argc, char *argv[])
     float t = 0.0f;
 
     Image32 png_sample_image = load_image32_from_png(png_filepath);
+    Image32 surface = {
+        .width = VODUS_WIDTH,
+        .height = VODUS_HEIGHT,
+        .pixels = new Pixel32[VODUS_WIDTH * VODUS_HEIGHT]
+    };
 
-    pthread_mutex_init(&queue_mutex, nullptr);
-    init_frame_arena();
+    // FFMPEG INIT START //////////////////////////////
+    AVCodec *codec = fail_if_null(
+        avcodec_find_encoder(AV_CODEC_ID_MPEG2VIDEO),
+        "Codec not found");
 
-    for (size_t i = 0; i < VODUS_OUTPUT_THREAD_COUNT; ++i) {
-        pthread_create(output_threads + i, nullptr, output_thread_routine, nullptr);
-    }
+    AVCodecContext *context = fail_if_null(
+        avcodec_alloc_context3(codec),
+        "Could not allocate video codec context\n");
+    defer(avcodec_free_context(&context));
 
-    while (text_y > 0.0f) {
-        Image32 surface = alloc_frame();
+    context->bit_rate = 400'000;
+    context->width = VODUS_WIDTH;     // resolution must be a multiple of two
+    context->height = VODUS_HEIGHT;
+    context->time_base = (AVRational){1, VODUS_FPS};
+    context->framerate = (AVRational){VODUS_FPS, 1};
+    context->gop_size = 10;
+    context->max_b_frames = 1;
+    context->pix_fmt = AV_PIX_FMT_YUV420P;
 
+    AVPacket *pkt = fail_if_null(
+        av_packet_alloc(),
+        "Could not allocate packet\n");
+    defer(av_packet_free(&pkt));
+
+    avec(avcodec_open2(context, codec, NULL));
+
+    FILE *f = fail_if_null(
+        fopen(output_filepath, "wb"),
+        "Could not open %s\n", output_filepath);
+    defer(fclose(f));
+
+    AVFrame *frame = fail_if_null(
+        av_frame_alloc(),
+        "Could not allocate video frame\n");
+    defer(av_frame_free(&frame));
+
+    frame->format = context->pix_fmt;
+    frame->width  = context->width;
+    frame->height = context->height;
+
+    avec(av_frame_get_buffer(frame, 32));
+    // FFMPEG INIT STOP //////////////////////////////
+
+    for (int i = 0; text_y > 0.0f; ++i) {
         fill_image32_with_color(surface, {50, 0, 0, 255});
 
         size_t gif_index = (int)(t / gif_dt) % gif_file->ImageCount;
@@ -440,17 +462,20 @@ int main(int argc, char *argv[])
         slap_text_onto_image32(surface, face, text, {0, 255, 0, 255},
                                (int) text_x, (int) text_y);
 
-        while (!enqueue(surface)) {}
+        slap_image32_onto_avframe(surface, frame);
+
+        frame->pts = i;
+        encode(context, frame, pkt, f);
 
         text_y -= (VODUS_HEIGHT / VODUS_VIDEO_DURATION) * VODUS_DELTA_TIME;
         t += VODUS_DELTA_TIME;
     }
-    stop_output_threads.store(true);
-    printf("Finished rendering. Waiting for the output thread.\n");
 
-    for (size_t i = 0; i < VODUS_OUTPUT_THREAD_COUNT; ++i) {
-        pthread_join(output_threads[i], nullptr);
-    }
+    encode(context, NULL, pkt, f);
+
+    uint8_t endcode[] = { 0, 0, 1, 0xb7 };
+    if (codec->id == AV_CODEC_ID_MPEG1VIDEO || codec->id == AV_CODEC_ID_MPEG2VIDEO)
+        fwrite(endcode, 1, sizeof(endcode), f);
 
     return 0;
 }

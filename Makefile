@@ -1,5 +1,5 @@
-PKGS=freetype2 libpng
-CXXFLAGS=-Wall -O3 -fno-builtin -fno-eliminate-unused-debug-types -std=c++17 -ggdb $(shell pkg-config --cflags $(PKGS))
+PKGS=freetype2 libpng libavcodec libavutil
+CXXFLAGS=-Wall -O3 -fno-builtin -fno-eliminate-unused-debug-types -std=c++17 -ggdb $(shell pkg-config --cflags $(PKGS)) 
 LIBS=$(shell pkg-config --libs $(PKGS)) -lgif -lpthread
 
 all: vodus Makefile
@@ -11,7 +11,4 @@ vodus: main.cpp
 render: output.mp4
 
 output.mp4: vodus
-	rm -rfv output/
-	mkdir -p output/
-	./vodus 'Chat! Vy r u ded?' phpHop.gif gasm.png > /dev/null
-	ffmpeg -y -framerate 60 -i 'output/%04d.png' output.mp4
+	./vodus 'Chat! Vy r u ded?' phpHop.gif gasm.png
