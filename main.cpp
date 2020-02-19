@@ -38,9 +38,23 @@ struct Defer
 void avec(int code)
 {
     if (code < 0) {
-        fprintf(stderr, "libavcodec pooped itself: %s\n", av_err2str(code));
+        fprintf(stderr, "ffmpeg pooped itself: %s\n", av_err2str(code));
         exit(1);
     }
+}
+
+template <typename T>
+T *fail_if_null(T *ptr, const char *format, ...)
+{
+    if (ptr == nullptr) {
+        va_list args;
+        va_start(args, format);
+        vfprintf(stderr, format, args);
+        va_end(args);
+        exit(1);
+    }
+
+    return ptr;
 }
 
 #define CONCAT0(a, b) a##b
@@ -386,52 +400,39 @@ int main(int argc, char *argv[])
 {
     const char *filename = "output.mp4";
 
-    AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_MPEG2VIDEO);
-    if (!codec) {
-        fprintf(stderr, "codec not found\n");
-        exit(1);
-    }
+    AVCodec *codec = fail_if_null(
+        avcodec_find_encoder(AV_CODEC_ID_MPEG2VIDEO),
+        "Codec not found");
 
-    AVCodecContext *context = avcodec_alloc_context3(codec);
-    if (!context) {
-        fprintf(stderr, "Could not allocate video codec context\n");
-        exit(1);
-    }
+    AVCodecContext *context = fail_if_null(
+        avcodec_alloc_context3(codec),
+        "Could not allocate video codec context\n");
     defer(avcodec_free_context(&context));
 
-    if (codec->id == AV_CODEC_ID_H264)
-        av_opt_set(context->priv_data, "preset", "slow", 0);
-
     context->bit_rate = 400'000;
-    context->width = 690;     // resolution must be a multiple of two
-    context->height = 420;
-    context->time_base = (AVRational){1, 25};
-    context->framerate = (AVRational){25, 1};
+    context->width = VODUS_WIDTH;     // resolution must be a multiple of two
+    context->height = VODUS_HEIGHT;
+    context->time_base = (AVRational){1, VODUS_FPS};
+    context->framerate = (AVRational){VODUS_FPS, 1};
     context->gop_size = 10;
     context->max_b_frames = 1;
     context->pix_fmt = AV_PIX_FMT_YUV420P;
 
-    AVPacket *pkt = av_packet_alloc();
-    if (!pkt) {
-        fprintf(stderr, "Could not allocate packet\n");
-        exit(1);
-    }
+    AVPacket *pkt = fail_if_null(
+        av_packet_alloc(),
+        "Could not allocate packet\n");
     defer(av_packet_free(&pkt));
 
     avec(avcodec_open2(context, codec, NULL));
 
-    FILE *f = fopen(filename, "wb");
-    if (!f) {
-        fprintf(stderr, "Could not open %s\n", filename);
-        exit(1);
-    }
+    FILE *f = fail_if_null(
+        fopen(filename, "wb"),
+        "Could not open %s\n", filename);
     defer(fclose(f));
 
-    AVFrame *frame = av_frame_alloc();
-    if (!frame) {
-        fprintf(stderr, "Could not allocate video frame\n");
-        exit(1);
-    }
+    AVFrame *frame = fail_if_null(
+        av_frame_alloc(),
+        "Could not allocate video frame\n");
     defer(av_frame_free(&frame));
 
     frame->format = context->pix_fmt;
@@ -440,9 +441,8 @@ int main(int argc, char *argv[])
 
     avec(av_frame_get_buffer(frame, 32));
 
-    for (int i = 0; i < 25; ++i) {
+    for (int i = 0; i < VODUS_FPS * 5; ++i) {
         fflush(stdout);
-
 
         avec(av_frame_make_writable(frame));
 
