@@ -1,3 +1,5 @@
+[![Build Status](https://github.com/tsoding/vodus/workflows/CI/badge.svg)](https://github.com/tsoding/vodus/actions)
+
 # Vodus
 
 ## Quick Start
