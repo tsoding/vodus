@@ -47,7 +47,7 @@ void slap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y
                     dest.pixels[(row + y) * dest.width + col + x].b =
                         a * color.b + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].b;
                 }
-                // TODO: how do we mix alphas?
+                // TODO(#6): how do we mix alphas?
             }
         }
     }
