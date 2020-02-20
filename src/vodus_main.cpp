@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 
     auto gif_file = DGifOpenFileName(gif_filepath, &error);
     if (error) {
-        fprintf(stderr, "Could not read gif file: %s", gif_filepath);
+        fprintf(stderr, "Could not read gif file: %s\n", gif_filepath);
         exit(1);
     }
     assert(error == 0);

@@ -12,4 +12,4 @@ vodus: src/vodus.cpp src/vodus_image32.cpp src/vodus_main.cpp
 render: output.mp4
 
 output.mp4: vodus
-	./vodus 'Chat! Vy r u ded?' phpHop.gif gasm.png
+	./vodus 'Chat! Vy r u ded?' assets/phpHop.gif assets/gasm.png

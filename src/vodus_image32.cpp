@@ -101,9 +101,19 @@ Image32 load_image32_from_png(const char *filepath)
     image.version = PNG_IMAGE_VERSION;
     png_image_begin_read_from_file(&image, filepath);
 
+    if (image.warning_or_error) {
+        fprintf(stderr, "Could not load file %s: %s\n", filepath, image.message);
+        exit(1);
+    }
+
     image.format = PNG_FORMAT_RGBA;
-    Pixel32 *buffer = (Pixel32 *)malloc(sizeof(Pixel32) * image.width * image.height);
+    Pixel32 *buffer = new Pixel32[image.width * image.height];
     png_image_finish_read(&image, NULL, buffer, 0, NULL);
+
+    if (image.warning_or_error) {
+        fprintf(stderr, "Could not load file %s: %s\n", filepath, image.message);
+        exit(1);
+    }
 
     Image32 result = {
         .width = image.width,
