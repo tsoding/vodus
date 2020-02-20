@@ -82,32 +82,6 @@ int save_image32_as_png(Image32 image, const char *filename)
                                    0, nullptr);
 }
 
-int save_image32_as_ppm(Image32 image, const char *filename)
-{
-    FILE *f = fopen(filename, "wb");
-    if (!f) return -1;
-
-    fprintf(f,
-            "P6\n"
-            "%d %d\n"
-            "255\n",
-            image.width,
-            image.height);
-
-    for (size_t row = 0; row < image.height; ++row) {
-        for (size_t col = 0; col < image.width; ++col) {
-            Pixel32 p = *(image.pixels + image.width * row + col);
-            fputc(p.r, f);
-            fputc(p.g, f);
-            fputc(p.b, f);
-        }
-    }
-
-    fclose(f);
-
-    return 0;
-}
-
 void fill_image32_with_color(Image32 image, Pixel32 color)
 {
     size_t n = image.width * image.height;
@@ -174,55 +148,6 @@ void slap_onto_image32(Image32 dest,
                     dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
                     dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
                     dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
-                }
-            }
-        }
-    }
-}
-
-int save_bitmap_as_ppm(FT_Bitmap *bitmap,
-                       const char *filename)
-{
-    assert(bitmap->pixel_mode == FT_PIXEL_MODE_GRAY);
-
-    FILE *f = fopen(filename, "wb");
-    if (!f) return -1;
-
-    fprintf(f,
-            "P6\n"
-            "%d %d\n"
-            "255\n",
-            bitmap->width,
-            bitmap->rows);
-
-    for (size_t row = 0; row < bitmap->rows; ++row) {
-        for (size_t col = 0; col < bitmap->width; ++col) {
-            char x = *(bitmap->buffer + bitmap->pitch * row + col);
-            fputc(x, f);
-            fputc(x, f);
-            fputc(x, f);
-        }
-    }
-
-    fclose(f);
-    return 0;
-}
-
-void slap_bitmap_onto_bitmap(FT_Bitmap *dest,
-                             FT_Bitmap *src,
-                             int x, int y)
-{
-    assert(dest);
-    assert(dest->pixel_mode == FT_PIXEL_MODE_GRAY);
-    assert(src);
-    assert(src->pixel_mode == FT_PIXEL_MODE_GRAY);
-
-    for (size_t row = 0; (row < src->rows); ++row) {
-        if(row + y < dest->rows) {
-            for (size_t col = 0; (col < src->width); ++col) {
-                if (col + x < dest->width) {
-                    dest->buffer[(row + y) * dest->pitch + col + x] =
-                        src->buffer[row * src->pitch + col];
                 }
             }
         }
