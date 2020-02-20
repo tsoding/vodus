@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
     float text_x = 0.0f;
     float text_y = VODUS_HEIGHT;
 
-    // TODO: proper gif timings should be taken from the gif file itself
+    // TODO(#7): proper gif timings should be taken from the gif file itself
     constexpr float GIF_DURATION = 2.0f;
 
     float gif_dt = GIF_DURATION / gif_file->ImageCount;
