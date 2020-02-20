@@ -94,8 +94,8 @@ int save_image32_as_ppm(Image32 image, const char *filename)
             image.width,
             image.height);
 
-    for (int row = 0; row < image.height; ++row) {
-        for (int col = 0; col < image.width; ++col) {
+    for (size_t row = 0; row < image.height; ++row) {
+        for (size_t col = 0; col < image.width; ++col) {
             Pixel32 p = *(image.pixels + image.width * row + col);
             fputc(p.r, f);
             fputc(p.g, f);
@@ -120,9 +120,9 @@ void slap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y
     assert(src->pixel_mode == FT_PIXEL_MODE_GRAY);
     assert(src->num_grays == 256);
 
-    for (int row = 0; (row < src->rows); ++row) {
+    for (size_t row = 0; (row < src->rows); ++row) {
         if (row + y < dest.height) {
-            for (int col = 0; (col < src->width); ++col) {
+            for (size_t col = 0; (col < src->width); ++col) {
                 if (col + x < dest.width) {
                     float a = src->buffer[row * src->pitch + col] / 255.0f;
                     dest.pixels[(row + y) * dest.width + col + x].r =
@@ -140,9 +140,9 @@ void slap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y
 
 void slap_onto_image32(Image32 dest, Image32 src, int x, int y)
 {
-    for (int row = 0; (row < src.height); ++row) {
+    for (size_t row = 0; (row < src.height); ++row) {
         if (row + y < dest.height) {
-            for (int col = 0; (col < src.width); ++col) {
+            for (size_t col = 0; (col < src.width); ++col) {
                 if (col + x < dest.width) {
                     dest.pixels[(row + y) * dest.width + col + x] =
                         src.pixels[row * src.height + col];
@@ -165,9 +165,9 @@ void slap_onto_image32(Image32 dest,
     assert(src->ImageDesc.Left == 0);
     assert(src->ImageDesc.Top == 0);
 
-    for (int row = 0; (row < src->ImageDesc.Height); ++row) {
+    for (size_t row = 0; ((int) row < src->ImageDesc.Height); ++row) {
         if (row + y < dest.height) {
-            for (int col = 0; (col < src->ImageDesc.Width); ++col) {
+            for (size_t col = 0; ((int) col < src->ImageDesc.Width); ++col) {
                 if (col + x < dest.width) {
                     auto pixel =
                         SColorMap->Colors[src->RasterBits[row * src->ImageDesc.Width + col]];
@@ -195,8 +195,8 @@ int save_bitmap_as_ppm(FT_Bitmap *bitmap,
             bitmap->width,
             bitmap->rows);
 
-    for (int row = 0; row < bitmap->rows; ++row) {
-        for (int col = 0; col < bitmap->width; ++col) {
+    for (size_t row = 0; row < bitmap->rows; ++row) {
+        for (size_t col = 0; col < bitmap->width; ++col) {
             char x = *(bitmap->buffer + bitmap->pitch * row + col);
             fputc(x, f);
             fputc(x, f);
@@ -217,11 +217,9 @@ void slap_bitmap_onto_bitmap(FT_Bitmap *dest,
     assert(src);
     assert(src->pixel_mode == FT_PIXEL_MODE_GRAY);
 
-    for (int row = 0; (row < src->rows); ++row) {
+    for (size_t row = 0; (row < src->rows); ++row) {
         if(row + y < dest->rows) {
-            for (int col = 0;
-                 (col < src->width);
-                 ++col) {
+            for (size_t col = 0; (col < src->width); ++col) {
                 if (col + x < dest->width) {
                     dest->buffer[(row + y) * dest->pitch + col + x] =
                         src->buffer[row * src->pitch + col];
@@ -260,7 +258,7 @@ void slap_text_onto_image32(Image32 surface,
 {
     const size_t text_count = strlen(text);
     int pen_x = x, pen_y = y;
-    for (int i = 0; i < text_count; ++i) {
+    for (size_t i = 0; i < text_count; ++i) {
         FT_UInt glyph_index = FT_Get_Char_Index(face, text[i]);
 
         auto error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
@@ -308,8 +306,8 @@ void encode(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE *outfil
 
 void slap_image32_onto_avframe(Image32 frame_image32, AVFrame *avframe)
 {
-    assert(avframe->width == frame_image32.width);
-    assert(avframe->height == frame_image32.height);
+    assert(avframe->width == (int) frame_image32.width);
+    assert(avframe->height == (int) frame_image32.height);
 
     for (int y = 0; y < avframe->height; ++y) {
         for (int x = 0; x < avframe->width; ++x) {
