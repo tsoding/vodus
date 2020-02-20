@@ -83,11 +83,8 @@ void slap_image32_onto_avframe(Image32 frame_image32, AVFrame *avframe)
 
 int main(int argc, char *argv[])
 {
-    // TODO: accept output_filepath through CLI arguments
-    const char *output_filepath = "output.mp4";
-
-    if (argc < 4) {
-        fprintf(stderr, "Usage: ./vodus <text> <gif_image> <png_image> <font>\n");
+    if (argc < 6) {
+        fprintf(stderr, "Usage: ./vodus <text> <gif_image> <png_image> <font> <output>\n");
         exit(1);
     }
 
@@ -95,6 +92,7 @@ int main(int argc, char *argv[])
     const char *gif_filepath = argv[2];
     const char *png_filepath = argv[3];
     const char *face_file_path = argv[4];
+    const char *output_filepath = argv[5];
 
     FT_Library library;
     auto error = FT_Init_FreeType(&library);

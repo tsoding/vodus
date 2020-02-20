@@ -1,4 +1,5 @@
 vodus
 *.ppm
 *.mp4
+*.mpeg
 output/
