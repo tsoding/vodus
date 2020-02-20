@@ -86,19 +86,15 @@ int main(int argc, char *argv[])
     // TODO: accept output_filepath through CLI arguments
     const char *output_filepath = "output.mp4";
 
-    if (argc < 3) {
-        fprintf(stderr, "Usage: ./vodus <text> <gif_image> <png_image> [font]\n");
+    if (argc < 4) {
+        fprintf(stderr, "Usage: ./vodus <text> <gif_image> <png_image> <font>\n");
         exit(1);
     }
 
     const char *text = argv[1];
     const char *gif_filepath = argv[2];
     const char *png_filepath = argv[3];
-    const char *face_file_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
-
-    if (argc >= 5) {
-        face_file_path = argv[4];
-    }
+    const char *face_file_path = argv[4];
 
     FT_Library library;
     auto error = FT_Init_FreeType(&library);
