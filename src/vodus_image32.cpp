@@ -67,7 +67,7 @@ void slap_onto_image32(Image32 dest, Image32 src, int x, int y)
     }
 }
 
-// TODO: slap_onto_image32 for libgif SavedImage does not support transparency
+// TODO(#9): slap_onto_image32 for libgif SavedImage does not support transparency
 void slap_onto_image32(Image32 dest,
                        SavedImage *src,
                        ColorMapObject *SColorMap,
