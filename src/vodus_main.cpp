@@ -162,7 +162,9 @@ int main(int argc, char *argv[])
     defer(avcodec_free_context(&context));
 
     context->bit_rate = 400'000;
-    context->width = VODUS_WIDTH;     // resolution must be a multiple of two
+    static_assert(VODUS_WIDTH % 2 == 0, "Resolution must be multiple of two");
+    static_assert(VODUS_HEIGHT % 2 == 0, "Resolution must be multiple of two");
+    context->width = VODUS_WIDTH;
     context->height = VODUS_HEIGHT;
     context->time_base = (AVRational){1, VODUS_FPS};
     context->framerate = (AVRational){VODUS_FPS, 1};
