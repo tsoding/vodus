@@ -5,8 +5,8 @@ LIBS=$(shell pkg-config --libs $(PKGS)) -lgif -lpthread
 .PHONY: all
 all: vodus Makefile
 
-vodus: vodus.cpp vodus_image32.cpp vodus_main.cpp
-	$(CXX) $(CXXFLAGS) -o vodus vodus.cpp $(LIBS)
+vodus: src/vodus.cpp src/vodus_image32.cpp src/vodus_main.cpp
+	$(CXX) $(CXXFLAGS) -o vodus src/vodus.cpp $(LIBS)
 
 .PHONY: render
 render: output.mp4
