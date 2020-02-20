@@ -33,4 +33,4 @@ jobs:
           CC: clang
 
 # TODO(#5): no MacOS build
-# TODO: no Windows build
+# TODO(#8): no Windows build
