@@ -35,7 +35,10 @@ struct Defer
 void avec(int code)
 {
     if (code < 0) {
-        fprintf(stderr, "ffmpeg pooped itself: %s\n", av_err2str(code));
+        constexpr size_t buf_size = 256;
+        char buf[buf_size];
+        av_strerror(code, buf, buf_size);
+        fprintf(stderr, "ffmpeg pooped itself: %s\n", buf);
         exit(1);
     }
 }
@@ -61,7 +64,8 @@ struct Pixel32
 
 struct Image32
 {
-    size_t width, height;
+    size_t width;
+    size_t height;
     Pixel32 *pixels;
 };
 
@@ -238,9 +242,9 @@ Image32 load_image32_from_png(const char *filepath)
     png_image_finish_read(&image, NULL, buffer, 0, NULL);
 
     Image32 result = {
-        .pixels = buffer,
         .width = image.width,
-        .height = image.height
+        .height = image.height,
+        .pixels = buffer,
     };
 
     png_image_free(&image);
