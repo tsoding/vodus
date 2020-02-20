@@ -2,9 +2,11 @@ PKGS=freetype2 libpng libavcodec libavutil
 CXXFLAGS=-Wall -O3 -fno-builtin -fno-eliminate-unused-debug-types -std=c++17 -ggdb $(shell pkg-config --cflags $(PKGS)) 
 LIBS=$(shell pkg-config --libs $(PKGS)) -lgif -lpthread
 
+.PHONY: all
 all: vodus Makefile
 
 vodus: main.cpp
+	# TODO: clang++ -> $(CXX)
 	clang++ $(CXXFLAGS) -o vodus main.cpp $(LIBS)
 
 .PHONY: render

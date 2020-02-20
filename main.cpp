@@ -322,6 +322,7 @@ void slap_image32_onto_avframe(Image32 frame_image32, AVFrame *avframe)
 
 int main(int argc, char *argv[])
 {
+    // TODO: accept output_filepath through CLI arguments
     const char *output_filepath = "output.mp4";
 
     if (argc < 3) {
