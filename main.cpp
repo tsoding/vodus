@@ -23,17 +23,14 @@ extern "C" {
 template <typename F>
 struct Defer
 {
-    Defer(F f):
-        f(f)
-    {}
-
-    ~Defer()
-    {
-        f();
-    }
-
+    Defer(F f): f(f) {}
+    ~Defer() { f(); }
     F f;
 };
+
+#define CONCAT0(a, b) a##b
+#define CONCAT(a, b) CONCAT0(a, b)
+#define defer(body) Defer CONCAT(defer, __LINE__)([&]() { body; })
 
 void avec(int code)
 {
@@ -56,10 +53,6 @@ T *fail_if_null(T *ptr, const char *format, ...)
 
     return ptr;
 }
-
-#define CONCAT0(a, b) a##b
-#define CONCAT(a, b) CONCAT0(a, b)
-#define defer(body) Defer CONCAT(defer, __LINE__)([&]() { body; })
 
 struct Pixel32
 {
