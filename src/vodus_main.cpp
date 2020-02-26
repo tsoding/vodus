@@ -196,16 +196,21 @@ int main(int argc, char *argv[])
     avec(av_frame_get_buffer(frame, 32));
     // FFMPEG INIT STOP //////////////////////////////
 
-    for (int i = 0; text_y > 0.0f; ++i) {
+    for (int frame_index = 0; text_y > 0.0f; ++frame_index) {
         fill_image32_with_color(surface, {50, 0, 0, 255});
 
         size_t gif_index = (int)(t / gif_dt) % gif_file->ImageCount;
+
+        GraphicsControlBlock gcb;
+        int ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
+        assert(ok);
 
         assert(gif_file->ImageCount > 0);
         slap_savedimage_onto_image32(
             surface,
             &gif_file->SavedImages[gif_index],
             gif_file->SColorMap,
+            gcb,
             (int) text_x, (int) text_y);
         slap_image32_onto_image32(
             surface,
@@ -217,7 +222,7 @@ int main(int argc, char *argv[])
 
         slap_image32_onto_avframe(surface, frame);
 
-        frame->pts = i;
+        frame->pts = frame_index;
         encode_avframe(context, frame, pkt, f);
 
         text_y -= (VODUS_HEIGHT / VODUS_VIDEO_DURATION) * VODUS_DELTA_TIME;

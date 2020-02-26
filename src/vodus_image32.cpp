@@ -71,6 +71,7 @@ void slap_image32_onto_image32(Image32 dest, Image32 src, int x, int y)
 void slap_savedimage_onto_image32(Image32 dest,
                                   SavedImage *src,
                                   ColorMapObject *SColorMap,
+                                  GraphicsControlBlock gcb,
                                   int x, int y)
 {
     assert(SColorMap);
@@ -84,11 +85,13 @@ void slap_savedimage_onto_image32(Image32 dest,
         if (row + y < dest.height) {
             for (size_t col = 0; ((int) col < src->ImageDesc.Width); ++col) {
                 if (col + x < dest.width) {
-                    auto pixel =
-                        SColorMap->Colors[src->RasterBits[row * src->ImageDesc.Width + col]];
-                    dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
-                    dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
-                    dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
+                    auto index = src->RasterBits[row * src->ImageDesc.Width + col];
+                    if (index != gcb.TransparentColor) {
+                        auto pixel = SColorMap->Colors[index];
+                        dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
+                        dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
+                        dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
+                    }
                 }
             }
         }
