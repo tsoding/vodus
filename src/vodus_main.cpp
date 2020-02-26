@@ -202,10 +202,11 @@ int main(int argc, char *argv[])
         size_t gif_index = (int)(t / gif_dt) % gif_file->ImageCount;
 
         assert(gif_file->ImageCount > 0);
-        slap_onto_image32(surface,
-                          &gif_file->SavedImages[gif_index],
-                          gif_file->SColorMap,
-                          (int) text_x, (int) text_y);
+        slap_savedimage_onto_image32(
+            surface,
+            &gif_file->SavedImages[gif_index],
+            gif_file->SColorMap,
+            (int) text_x, (int) text_y);
         slap_image32_onto_image32(
             surface,
             png_sample_image,
