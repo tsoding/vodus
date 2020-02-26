@@ -9,7 +9,7 @@ vodus: src/vodus.cpp src/vodus_image32.cpp src/vodus_main.cpp
 	$(CXX) $(CXXFLAGS) -o vodus src/vodus.cpp $(LIBS)
 
 .PHONY: render
-render: output.mp4
+render: output.mpeg
 
-output.mp4: vodus
+output.mpeg: vodus
 	./vodus 'Chat! Vy r u ded?' assets/phpHop.gif assets/gasm.png assets/ComicNeue_Bold.otf output.mpeg
