@@ -36,7 +36,7 @@ T *fail_if_null(T *ptr, const char *format, ...)
 }
 
 constexpr size_t VODUS_FPS = 60;
-constexpr float VODUS_DELTA_TIME = 1.0f / VODUS_FPS;
+constexpr float VODUS_DELTA_TIME_SEC = 1.0f / VODUS_FPS;
 constexpr size_t VODUS_WIDTH = 1920;
 constexpr size_t VODUS_HEIGHT = 1080;
 constexpr float VODUS_VIDEO_DURATION = 5.0f;
@@ -139,9 +139,6 @@ int main(int argc, char *argv[])
     float text_y = VODUS_HEIGHT;
 
     // TODO(#7): proper gif timings should be taken from the gif file itself
-    constexpr float GIF_DURATION = 2.0f;
-
-    float gif_dt = GIF_DURATION / gif_file->ImageCount;
     float t = 0.0f;
 
     Image32 png_sample_image = load_image32_from_png(png_filepath);
@@ -196,16 +193,16 @@ int main(int argc, char *argv[])
     avec(av_frame_get_buffer(frame, 32));
     // FFMPEG INIT STOP //////////////////////////////
 
+    assert(gif_file->ImageCount > 0);
+    size_t gif_index = 0;
+    GraphicsControlBlock gcb;
+    int ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
+    float gif_delay_time = gcb.DelayTime;
+    assert(ok);
+
     for (int frame_index = 0; text_y > 0.0f; ++frame_index) {
         fill_image32_with_color(surface, {50, 0, 0, 255});
 
-        size_t gif_index = (int)(t / gif_dt) % gif_file->ImageCount;
-
-        GraphicsControlBlock gcb;
-        int ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
-        assert(ok);
-
-        assert(gif_file->ImageCount > 0);
         slap_savedimage_onto_image32(
             surface,
             &gif_file->SavedImages[gif_index],
@@ -222,11 +219,19 @@ int main(int argc, char *argv[])
 
         slap_image32_onto_avframe(surface, frame);
 
+        gif_delay_time -= VODUS_DELTA_TIME_SEC * 100;
+        if (gif_delay_time <= 0.0f) {
+            gif_index = (gif_index + 1) % gif_file->ImageCount;
+            ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
+            gif_delay_time = gcb.DelayTime;
+            assert(ok);
+        }
+
         frame->pts = frame_index;
         encode_avframe(context, frame, pkt, f);
 
-        text_y -= (VODUS_HEIGHT / VODUS_VIDEO_DURATION) * VODUS_DELTA_TIME;
-        t += VODUS_DELTA_TIME;
+        text_y -= (VODUS_HEIGHT / VODUS_VIDEO_DURATION) * VODUS_DELTA_TIME_SEC;
+        t += VODUS_DELTA_TIME_SEC;
     }
 
     encode_avframe(context, NULL, pkt, f);
