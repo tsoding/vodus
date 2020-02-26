@@ -30,7 +30,7 @@ void fill_image32_with_color(Image32 image, Pixel32 color)
         image.pixels[i] = color;
 }
 
-void slap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y)
+void slap_ftbitmap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y)
 {
     assert(src->pixel_mode == FT_PIXEL_MODE_GRAY);
     assert(src->num_grays == 256);
@@ -143,10 +143,10 @@ void slap_text_onto_image32(Image32 surface,
         error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
         assert(!error);
 
-        slap_onto_image32(surface, &face->glyph->bitmap,
-                          color,
-                          pen_x + face->glyph->bitmap_left,
-                          pen_y - face->glyph->bitmap_top);
+        slap_ftbitmap_onto_image32(surface, &face->glyph->bitmap,
+                                   color,
+                                   pen_x + face->glyph->bitmap_left,
+                                   pen_y - face->glyph->bitmap_top);
 
         pen_x += face->glyph->advance.x >> 6;
     }
