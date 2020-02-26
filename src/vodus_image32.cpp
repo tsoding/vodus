@@ -53,7 +53,7 @@ void slap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y
     }
 }
 
-void slap_onto_image32(Image32 dest, Image32 src, int x, int y)
+void slap_image32_onto_image32(Image32 dest, Image32 src, int x, int y)
 {
     for (size_t row = 0; (row < src.height); ++row) {
         if (row + y < dest.height) {

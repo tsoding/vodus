@@ -206,9 +206,10 @@ int main(int argc, char *argv[])
                           &gif_file->SavedImages[gif_index],
                           gif_file->SColorMap,
                           (int) text_x, (int) text_y);
-        slap_onto_image32(surface,
-                          png_sample_image,
-                          (int) text_x + gif_file->SavedImages[gif_index].ImageDesc.Width, (int) text_y);
+        slap_image32_onto_image32(
+            surface,
+            png_sample_image,
+            (int) text_x + gif_file->SavedImages[gif_index].ImageDesc.Width, (int) text_y);
 
         slap_text_onto_image32(surface, face, text, {0, 255, 0, 255},
                                (int) text_x, (int) text_y);
