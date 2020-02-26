@@ -30,7 +30,7 @@ void fill_image32_with_color(Image32 image, Pixel32 color)
         image.pixels[i] = color;
 }
 
-void slap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y)
+void slap_ftbitmap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y)
 {
     assert(src->pixel_mode == FT_PIXEL_MODE_GRAY);
     assert(src->num_grays == 256);
@@ -53,7 +53,7 @@ void slap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int x, int y
     }
 }
 
-void slap_onto_image32(Image32 dest, Image32 src, int x, int y)
+void slap_image32_onto_image32(Image32 dest, Image32 src, int x, int y)
 {
     for (size_t row = 0; (row < src.height); ++row) {
         if (row + y < dest.height) {
@@ -68,10 +68,11 @@ void slap_onto_image32(Image32 dest, Image32 src, int x, int y)
 }
 
 // TODO(#9): slap_onto_image32 for libgif SavedImage does not support transparency
-void slap_onto_image32(Image32 dest,
-                       SavedImage *src,
-                       ColorMapObject *SColorMap,
-                       int x, int y)
+void slap_savedimage_onto_image32(Image32 dest,
+                                  SavedImage *src,
+                                  ColorMapObject *SColorMap,
+                                  GraphicsControlBlock gcb,
+                                  int x, int y)
 {
     assert(SColorMap);
     assert(SColorMap->BitsPerPixel == 8);
@@ -84,11 +85,13 @@ void slap_onto_image32(Image32 dest,
         if (row + y < dest.height) {
             for (size_t col = 0; ((int) col < src->ImageDesc.Width); ++col) {
                 if (col + x < dest.width) {
-                    auto pixel =
-                        SColorMap->Colors[src->RasterBits[row * src->ImageDesc.Width + col]];
-                    dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
-                    dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
-                    dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
+                    auto index = src->RasterBits[row * src->ImageDesc.Width + col];
+                    if (index != gcb.TransparentColor) {
+                        auto pixel = SColorMap->Colors[index];
+                        dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
+                        dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
+                        dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
+                    }
                 }
             }
         }
@@ -143,10 +146,10 @@ void slap_text_onto_image32(Image32 surface,
         error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
         assert(!error);
 
-        slap_onto_image32(surface, &face->glyph->bitmap,
-                          color,
-                          pen_x + face->glyph->bitmap_left,
-                          pen_y - face->glyph->bitmap_top);
+        slap_ftbitmap_onto_image32(surface, &face->glyph->bitmap,
+                                   color,
+                                   pen_x + face->glyph->bitmap_left,
+                                   pen_y - face->glyph->bitmap_top);
 
         pen_x += face->glyph->advance.x >> 6;
     }
