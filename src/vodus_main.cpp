@@ -13,7 +13,7 @@ struct Defer
 void avec(int code)
 {
     if (code < 0) {
-        constexpr size_t buf_size = 256;
+        const size_t buf_size = 256;
         char buf[buf_size];
         av_strerror(code, buf, buf_size);
         fprintf(stderr, "ffmpeg pooped itself: %s\n", buf);
@@ -35,11 +35,11 @@ T *fail_if_null(T *ptr, const char *format, ...)
     return ptr;
 }
 
-constexpr size_t VODUS_FPS = 60;
-constexpr float VODUS_DELTA_TIME_SEC = 1.0f / VODUS_FPS;
-constexpr size_t VODUS_WIDTH = 1920;
-constexpr size_t VODUS_HEIGHT = 1080;
-constexpr float VODUS_VIDEO_DURATION = 5.0f;
+const size_t VODUS_FPS = 60;
+const float VODUS_DELTA_TIME_SEC = 1.0f / VODUS_FPS;
+const size_t VODUS_WIDTH = 1920;
+const size_t VODUS_HEIGHT = 1080;
+const float VODUS_VIDEO_DURATION = 5.0f;
 
 void encode_avframe(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE *outfile)
 {
