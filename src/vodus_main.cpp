@@ -113,7 +113,7 @@ void render_message(Image32 surface, FT_Face face, Message message,
                            {255, 0, 0, 255},
                            x, y);
 
-    // TODO: offset messages according to the width of nickname
+    // TODO(#14): offset messages according to the width of nickname
     // TODO: emotes are not rendered
     const int MESSAGE_OFFSET = 500;
     slap_text_onto_image32(surface,
