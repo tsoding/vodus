@@ -81,6 +81,65 @@ void slap_image32_onto_avframe(Image32 frame_image32, AVFrame *avframe)
     }
 }
 
+void test_animation(GifFileType *gif_file,
+                    Image32 png_sample_image,
+                    FT_Face face,
+                    const char *text,
+                    std::function<void(Image32, int)> encode_frame)
+{
+    assert(gif_file->ImageCount > 0);
+    size_t gif_index = 0;
+    GraphicsControlBlock gcb;
+    int ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
+    float gif_delay_time = gcb.DelayTime;
+    assert(ok);
+
+    Image32 surface = {
+        .width = VODUS_WIDTH,
+        .height = VODUS_HEIGHT,
+        .pixels = new Pixel32[VODUS_WIDTH * VODUS_HEIGHT]
+    };
+    defer(delete[] surface.pixels);
+
+    float text_x = 0.0f;
+    float text_y = VODUS_HEIGHT;
+    float t = 0.0f;
+    for (int frame_index = 0; text_y > 0.0f; ++frame_index) {
+        fill_image32_with_color(surface, {50, 0, 0, 255});
+
+        slap_savedimage_onto_image32(
+            surface,
+            &gif_file->SavedImages[gif_index],
+            gif_file->SColorMap,
+            gcb,
+            (int) text_x, (int) text_y);
+        slap_image32_onto_image32(
+            surface,
+            png_sample_image,
+            (int) text_x + gif_file->SavedImages[gif_index].ImageDesc.Width, (int) text_y);
+
+        slap_text_onto_image32(surface, face, text, {0, 255, 0, 255},
+                               (int) text_x, (int) text_y);
+
+
+        gif_delay_time -= VODUS_DELTA_TIME_SEC * 100;
+        if (gif_delay_time <= 0.0f) {
+            gif_index = (gif_index + 1) % gif_file->ImageCount;
+            ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
+            gif_delay_time = gcb.DelayTime;
+            assert(ok);
+        }
+
+        encode_frame(surface, frame_index);
+        // slap_image32_onto_avframe(surface, frame);
+        // frame->pts = frame_index;
+        // encode_avframe(context, frame, pkt, f);
+
+        text_y -= (VODUS_HEIGHT / VODUS_VIDEO_DURATION) * VODUS_DELTA_TIME_SEC;
+        t += VODUS_DELTA_TIME_SEC;
+    }
+}
+
 int main(int argc, char *argv[])
 {
     if (argc < 6) {
@@ -135,18 +194,7 @@ int main(int argc, char *argv[])
     assert(error == 0);
     DGifSlurp(gif_file);
 
-    float text_x = 0.0f;
-    float text_y = VODUS_HEIGHT;
-
-    // TODO(#7): proper gif timings should be taken from the gif file itself
-    float t = 0.0f;
-
-    Image32 png_sample_image = load_image32_from_png(png_filepath);
-    Image32 surface = {
-        .width = VODUS_WIDTH,
-        .height = VODUS_HEIGHT,
-        .pixels = new Pixel32[VODUS_WIDTH * VODUS_HEIGHT]
-    };
+    auto png_sample_image = load_image32_from_png(png_filepath);
 
     // FFMPEG INIT START //////////////////////////////
     AVCodec *codec = fail_if_null(
@@ -169,17 +217,17 @@ int main(int argc, char *argv[])
     context->max_b_frames = 1;
     context->pix_fmt = AV_PIX_FMT_YUV420P;
 
-    AVPacket *pkt = fail_if_null(
+    AVPacket *packet = fail_if_null(
         av_packet_alloc(),
         "Could not allocate packet\n");
-    defer(av_packet_free(&pkt));
+    defer(av_packet_free(&packet));
 
     avec(avcodec_open2(context, codec, NULL));
 
-    FILE *f = fail_if_null(
+    FILE *output_stream = fail_if_null(
         fopen(output_filepath, "wb"),
         "Could not open %s\n", output_filepath);
-    defer(fclose(f));
+    defer(fclose(output_stream));
 
     AVFrame *frame = fail_if_null(
         av_frame_alloc(),
@@ -193,52 +241,21 @@ int main(int argc, char *argv[])
     avec(av_frame_get_buffer(frame, 32));
     // FFMPEG INIT STOP //////////////////////////////
 
-    assert(gif_file->ImageCount > 0);
-    size_t gif_index = 0;
-    GraphicsControlBlock gcb;
-    int ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
-    float gif_delay_time = gcb.DelayTime;
-    assert(ok);
+    auto encode_frame =
+        [frame, context, packet, output_stream](Image32 surface, int frame_index) {
+            slap_image32_onto_avframe(surface, frame);
+            frame->pts = frame_index;
+            encode_avframe(context, frame, packet, output_stream);
+        };
 
-    for (int frame_index = 0; text_y > 0.0f; ++frame_index) {
-        fill_image32_with_color(surface, {50, 0, 0, 255});
+    test_animation(gif_file, png_sample_image, face, text,
+                   encode_frame);
 
-        slap_savedimage_onto_image32(
-            surface,
-            &gif_file->SavedImages[gif_index],
-            gif_file->SColorMap,
-            gcb,
-            (int) text_x, (int) text_y);
-        slap_image32_onto_image32(
-            surface,
-            png_sample_image,
-            (int) text_x + gif_file->SavedImages[gif_index].ImageDesc.Width, (int) text_y);
-
-        slap_text_onto_image32(surface, face, text, {0, 255, 0, 255},
-                               (int) text_x, (int) text_y);
-
-        slap_image32_onto_avframe(surface, frame);
-
-        gif_delay_time -= VODUS_DELTA_TIME_SEC * 100;
-        if (gif_delay_time <= 0.0f) {
-            gif_index = (gif_index + 1) % gif_file->ImageCount;
-            ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
-            gif_delay_time = gcb.DelayTime;
-            assert(ok);
-        }
-
-        frame->pts = frame_index;
-        encode_avframe(context, frame, pkt, f);
-
-        text_y -= (VODUS_HEIGHT / VODUS_VIDEO_DURATION) * VODUS_DELTA_TIME_SEC;
-        t += VODUS_DELTA_TIME_SEC;
-    }
-
-    encode_avframe(context, NULL, pkt, f);
+    encode_avframe(context, NULL, packet, output_stream);
 
     uint8_t endcode[] = { 0, 0, 1, 0xb7 };
     if (codec->id == AV_CODEC_ID_MPEG1VIDEO || codec->id == AV_CODEC_ID_MPEG2VIDEO)
-        fwrite(endcode, 1, sizeof(endcode), f);
+        fwrite(endcode, 1, sizeof(endcode), output_stream);
 
     return 0;
 }
