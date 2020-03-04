@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <cmath>
 
+#include <functional>
+
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <gif_lib.h>
