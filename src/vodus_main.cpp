@@ -159,7 +159,7 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame)
 
         message_cooldown -= VODUS_DELTA_TIME_SEC;
 
-        // TODO: animate appearance of the message
+        // TODO(#16): animate appearance of the message
         render_log(surface, face, message_index);
         encode_frame(surface, frame_index);
     }
