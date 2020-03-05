@@ -183,6 +183,7 @@ void test_animation(GifFileType *gif_file,
     int ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
     float gif_delay_time = gcb.DelayTime;
     assert(ok);
+    // TODO(#17): abstract away gif animation entity
 
     Image32 surface = {
         .width = VODUS_WIDTH,
