@@ -40,7 +40,7 @@ const float VODUS_DELTA_TIME_SEC = 1.0f / VODUS_FPS;
 const size_t VODUS_WIDTH = 1920;
 const size_t VODUS_HEIGHT = 1080;
 const float VODUS_VIDEO_DURATION = 5.0f;
-const size_t FONT_SIZE = 64;
+const size_t VODUS_FONT_SIZE = 64;
 
 void encode_avframe(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE *outfile)
 {
@@ -126,7 +126,7 @@ void render_message(Image32 surface, FT_Face face, Message message,
 void render_log(Image32 surface, FT_Face face, size_t message_index)
 {
     fill_image32_with_color(surface, {0, 0, 0, 255});
-    const int FONT_HEIGHT = FONT_SIZE;
+    const int FONT_HEIGHT = VODUS_FONT_SIZE;
     const int CHAT_PADDING = 0;
     int text_y = FONT_HEIGHT + CHAT_PADDING;
     for (size_t i = 0; i < message_index; ++i) {
@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
     printf("Loaded %s\n", face_file_path);
     printf("\tnum_glyphs = %ld\n", face->num_glyphs);
 
-    error = FT_Set_Pixel_Sizes(face, 0, FONT_SIZE);
+    error = FT_Set_Pixel_Sizes(face, 0, VODUS_FONT_SIZE);
     if (error) {
         fprintf(stderr, "Could not set font size in pixels\n");
         exit(1);
