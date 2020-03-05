@@ -165,8 +165,8 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame)
     }
 
     render_log(surface, face, message_index);
-    const int TRAILING_BUFFER_SEC = 2;
-    for (int i = 0; i < TRAILING_BUFFER_SEC * VODUS_FPS; ++i, ++frame_index) {
+    const size_t TRAILING_BUFFER_SEC = 2;
+    for (size_t i = 0; i < TRAILING_BUFFER_SEC * VODUS_FPS; ++i, ++frame_index) {
         encode_frame(surface, frame_index);
     }
 }
