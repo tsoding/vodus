@@ -221,9 +221,6 @@ void test_animation(GifFileType *gif_file,
         }
 
         encode_frame(surface, frame_index);
-        // slap_image32_onto_avframe(surface, frame);
-        // frame->pts = frame_index;
-        // encode_avframe(context, frame, pkt, f);
 
         text_y -= (VODUS_HEIGHT / VODUS_VIDEO_DURATION) * VODUS_DELTA_TIME_SEC;
         t += VODUS_DELTA_TIME_SEC;
