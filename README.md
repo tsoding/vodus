@@ -2,6 +2,12 @@
 
 # Vodus
 
+Introduction Video: https://www.twitch.tv/videos/563056420
+
+**WARNING! The application is in an active development state and is not even
+alpha yet. Use it at your own risk. Nothing is documented, anything can be
+changed at any moment or stop working at all.**
+
 ## Quick Start
 
 ```console
