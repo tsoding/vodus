@@ -134,7 +134,7 @@ void render_message(Image32 surface, FT_Face face,
 
         if (maybe_bttv_emote.has_value) {
             auto bttv_emote = maybe_bttv_emote.unwrap;
-            // TODO: BTTV gif emotes rendering is not supported
+            // TODO(#25): BTTV gif emotes rendering is not supported
             assert(bttv_emote.type == Bttv_Emote_Type::Png);
 
             const float emote_ratio = (float) bttv_emote.png.width / bttv_emote.png.height;
