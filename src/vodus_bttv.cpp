@@ -48,15 +48,16 @@ struct Gif_Animat
     }
 };
 
-enum class Emote_Type
-{
-    Png = 0,
-    Gif
-};
-
 struct Emote
 {
-    Emote_Type type;
+    enum Type
+    {
+        Png = 0,
+        Gif
+    };
+
+    Type type;
+
     union
     {
         Image32 png;
@@ -66,8 +67,8 @@ struct Emote
     int width() const
     {
         switch (type) {
-        case Emote_Type::Png: return png.width;
-        case Emote_Type::Gif: return gif.width();
+        case Png: return png.width;
+        case Gif: return gif.width();
         }
         assert(!"Incorrect Emote_Type value");
         return 0;
@@ -76,8 +77,8 @@ struct Emote
     int height() const
     {
         switch (type) {
-        case Emote_Type::Png: return png.height;
-        case Emote_Type::Gif: return gif.height();
+        case Png: return png.height;
+        case Gif: return gif.height();
         }
         assert(!"Incorrect Emote_Type value");
         return 0;
@@ -86,11 +87,11 @@ struct Emote
     void slap_onto_image32(Image32 surface, int x, int y, int w, int h)
     {
         switch (type) {
-        case Emote_Type::Png: {
+        case Png: {
             slap_image32_onto_image32(surface, png, x, y, w, h);
         } return;
 
-        case Emote_Type::Gif: {
+        case Gif: {
             gif.slap_onto_image32(surface, x, y, w, h);
         } return;
         }
@@ -113,11 +114,11 @@ struct Bttv
         // TODO(#19): Emotes in Bttv::emote_by_name are hardcoded
         //    Some sort of a cache system is required here.
         if (name == "AYAYA"_sv) {
-            Emote emote = {Emote_Type::Png};
+            Emote emote = {Emote::Png};
             emote.png = ayaya_image;
             return {true, emote};
         } else if (name == "phpHop"_sv) {
-            Emote emote = {Emote_Type::Gif};
+            Emote emote = {Emote::Gif};
             emote.gif = php_hop;
             return {true, emote};
         }
