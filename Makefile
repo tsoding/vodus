@@ -12,4 +12,4 @@ vodus: src/vodus.cpp src/vodus_image32.cpp src/vodus_main.cpp
 render: output.mpeg
 
 output.mpeg: vodus
-	./vodus 'Chat! Vy r u ded?' assets/phpHop.gif assets/gasm.png assets/ComicNeue_Bold.otf output.mpeg
+	./vodus 'Chat! Vy r u ded?' assets/phpHop.gif assets/ayaya.png assets/ComicNeue_Bold.otf output.mpeg

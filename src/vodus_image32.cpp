@@ -53,6 +53,7 @@ void slap_ftbitmap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int
     }
 }
 
+// TODO(#22): slap_image32_onto_image32 does not support alpha blending
 void slap_image32_onto_image32(Image32 dest, Image32 src, int x, int y)
 {
     for (size_t row = 0; (row < src.height); ++row) {
@@ -60,7 +61,27 @@ void slap_image32_onto_image32(Image32 dest, Image32 src, int x, int y)
             for (size_t col = 0; (col < src.width); ++col) {
                 if (col + x < dest.width) {
                     dest.pixels[(row + y) * dest.width + col + x] =
-                        src.pixels[row * src.height + col];
+                        src.pixels[row * src.width + col];
+                }
+            }
+        }
+    }
+}
+
+// TODO(#24): resizing version of slap_image32_onto_image32 requires some sort of interpolation
+void slap_image32_onto_image32(Image32 dest, Image32 src,
+                               int x, int y,
+                               size_t target_width,
+                               size_t target_height)
+{
+    for (size_t row = 0; (row < target_height); ++row) {
+        if (row + y < dest.height) {
+            for (size_t col = 0; (col < target_width); ++col) {
+                if (col + x < dest.width) {
+                    int src_row = floorf((float) row / target_height * src.height);
+                    int src_col = floorf((float) col / target_width * src.width);
+                    dest.pixels[(row + y) * dest.width + col + x] =
+                        src.pixels[src_row * src.width + src_col];
                 }
             }
         }
@@ -128,16 +149,15 @@ Image32 load_image32_from_png(const char *filepath)
     return result;
 }
 
+
 void slap_text_onto_image32(Image32 surface,
                             FT_Face face,
-                            const char *text,
+                            String_View text,
                             Pixel32 color,
-                            int x, int y)
+                            int *pen_x, int *pen_y)
 {
-    const size_t text_count = strlen(text);
-    int pen_x = x, pen_y = y;
-    for (size_t i = 0; i < text_count; ++i) {
-        FT_UInt glyph_index = FT_Get_Char_Index(face, text[i]);
+    for (size_t i = 0; i < text.count; ++i) {
+        FT_UInt glyph_index = FT_Get_Char_Index(face, text.data[i]);
 
         auto error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
         assert(!error);
@@ -147,9 +167,22 @@ void slap_text_onto_image32(Image32 surface,
 
         slap_ftbitmap_onto_image32(surface, &face->glyph->bitmap,
                                    color,
-                                   pen_x + face->glyph->bitmap_left,
-                                   pen_y - face->glyph->bitmap_top);
+                                   *pen_x + face->glyph->bitmap_left,
+                                   *pen_y - face->glyph->bitmap_top);
 
-        pen_x += face->glyph->advance.x >> 6;
+        *pen_x += face->glyph->advance.x >> 6;
     }
+}
+
+void slap_text_onto_image32(Image32 surface,
+                            FT_Face face,
+                            const char *text,
+                            Pixel32 color,
+                            int *pen_x, int *pen_y)
+{
+    slap_text_onto_image32(surface,
+                           face,
+                           cstr_as_string_view(text),
+                           color,
+                           pen_x, pen_y);
 }
