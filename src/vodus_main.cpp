@@ -135,31 +135,14 @@ void render_message(Image32 surface, FT_Face face,
         if (maybe_bttv_emote.has_value) {
             auto bttv_emote = maybe_bttv_emote.unwrap;
 
-            switch (bttv_emote.type) {
-            case Bttv_Emote_Type::Png: {
-                const float emote_ratio = (float) bttv_emote.png.width / bttv_emote.png.height;
-                const int emote_height = VODUS_FONT_SIZE;
-                const int emote_width = floorf(emote_height * emote_ratio);
+            const float emote_ratio = (float) bttv_emote.width() / bttv_emote.height();
+            const int emote_height = VODUS_FONT_SIZE;
+            const int emote_width = floorf(emote_height * emote_ratio);
 
-                slap_image32_onto_image32(surface, bttv_emote.png,
-                                          x, y - emote_height,
-                                          emote_width, emote_height);
-                x += emote_width;
-            } break;
-
-            case Bttv_Emote_Type::Gif: {
-                const float emote_ratio = (float) bttv_emote.gif.width() / bttv_emote.gif.height();
-                const int emote_height = VODUS_FONT_SIZE;
-                const int emote_width = floorf(emote_height * emote_ratio);
-
-                bttv_emote.gif.slap_onto_image32(surface,
-                                                 x, y - emote_height,
-                                                 emote_width, emote_height);
-
-                x += emote_width;
-            }
-            }
-
+            bttv_emote.slap_onto_image32(surface,
+                                         x, y - emote_height,
+                                         emote_width, emote_height);
+            x += emote_width;
         } else {
             slap_text_onto_image32(surface,
                                    face,

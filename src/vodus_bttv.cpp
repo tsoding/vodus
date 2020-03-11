@@ -62,6 +62,40 @@ struct Bttv_Emote
         Image32 png;
         Gif_Animat gif;
     };
+
+    int width() const
+    {
+        switch (type) {
+        case Bttv_Emote_Type::Png: return png.width;
+        case Bttv_Emote_Type::Gif: return gif.width();
+        }
+        assert(!"Incorrect Bttv_Emote_Type value");
+        return 0;
+    }
+
+    int height() const
+    {
+        switch (type) {
+        case Bttv_Emote_Type::Png: return png.height;
+        case Bttv_Emote_Type::Gif: return gif.height();
+        }
+        assert(!"Incorrect Bttv_Emote_Type value");
+        return 0;
+    }
+
+    void slap_onto_image32(Image32 surface, int x, int y, int w, int h)
+    {
+        switch (type) {
+        case Bttv_Emote_Type::Png: {
+            slap_image32_onto_image32(surface, png, x, y, w, h);
+        } return;
+
+        case Bttv_Emote_Type::Gif: {
+            gif.slap_onto_image32(surface, x, y, w, h);
+        } return;
+        }
+        assert(!"Incorrect Bttv_Emote_Type value");
+    }
 };
 
 template <typename T>
