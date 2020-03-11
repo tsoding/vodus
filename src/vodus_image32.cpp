@@ -53,7 +53,7 @@ void slap_ftbitmap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int
     }
 }
 
-// TODO: slap_image32_onto_image32 does not support alpha blending
+// TODO(#22): slap_image32_onto_image32 does not support alpha blending
 void slap_image32_onto_image32(Image32 dest, Image32 src, int x, int y)
 {
     for (size_t row = 0; (row < src.height); ++row) {
