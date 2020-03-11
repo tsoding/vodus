@@ -7,6 +7,7 @@ struct Gif_Animat
 
     void update(float dt)
     {
+        // TODO(#29): If dt is too big Gif_Animat::index could probably go out of sync
         delay_time -= dt * 100;
         if (delay_time <= 0.0f) {
             index = (index + 1) % file->ImageCount;
@@ -48,15 +49,16 @@ struct Gif_Animat
     }
 };
 
-enum class Bttv_Emote_Type
+struct Emote
 {
-    Png = 0,
-    Gif
-};
+    enum Type
+    {
+        Png = 0,
+        Gif
+    };
 
-struct Bttv_Emote
-{
-    Bttv_Emote_Type type;
+    Type type;
+
     union
     {
         Image32 png;
@@ -66,35 +68,35 @@ struct Bttv_Emote
     int width() const
     {
         switch (type) {
-        case Bttv_Emote_Type::Png: return png.width;
-        case Bttv_Emote_Type::Gif: return gif.width();
+        case Png: return png.width;
+        case Gif: return gif.width();
         }
-        assert(!"Incorrect Bttv_Emote_Type value");
+        assert(!"Incorrect Emote_Type value");
         return 0;
     }
 
     int height() const
     {
         switch (type) {
-        case Bttv_Emote_Type::Png: return png.height;
-        case Bttv_Emote_Type::Gif: return gif.height();
+        case Png: return png.height;
+        case Gif: return gif.height();
         }
-        assert(!"Incorrect Bttv_Emote_Type value");
+        assert(!"Incorrect Emote_Type value");
         return 0;
     }
 
     void slap_onto_image32(Image32 surface, int x, int y, int w, int h)
     {
         switch (type) {
-        case Bttv_Emote_Type::Png: {
+        case Png: {
             slap_image32_onto_image32(surface, png, x, y, w, h);
         } return;
 
-        case Bttv_Emote_Type::Gif: {
+        case Gif: {
             gif.slap_onto_image32(surface, x, y, w, h);
         } return;
         }
-        assert(!"Incorrect Bttv_Emote_Type value");
+        assert(!"Incorrect Emote_Type value");
     }
 };
 
@@ -107,17 +109,17 @@ struct Maybe
 
 struct Bttv
 {
-    Maybe<Bttv_Emote> emote_by_name(String_View name,
+    Maybe<Emote> emote_by_name(String_View name,
                                     const char *channel = nullptr)
     {
         // TODO(#19): Emotes in Bttv::emote_by_name are hardcoded
         //    Some sort of a cache system is required here.
         if (name == "AYAYA"_sv) {
-            Bttv_Emote emote = {Bttv_Emote_Type::Png};
+            Emote emote = {Emote::Png};
             emote.png = ayaya_image;
             return {true, emote};
         } else if (name == "phpHop"_sv) {
-            Bttv_Emote emote = {Bttv_Emote_Type::Gif};
+            Emote emote = {Emote::Gif};
             emote.gif = php_hop;
             return {true, emote};
         }

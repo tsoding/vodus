@@ -40,7 +40,7 @@ const float VODUS_DELTA_TIME_SEC = 1.0f / VODUS_FPS;
 const size_t VODUS_WIDTH = 1028;
 const size_t VODUS_HEIGHT = 768;
 const float VODUS_VIDEO_DURATION = 5.0f;
-const size_t VODUS_FONT_SIZE = 128;
+const size_t VODUS_FONT_SIZE = 64;
 
 void encode_avframe(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE *outfile)
 {
@@ -212,62 +212,17 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bt
     }
 }
 
-void test_animation(GifFileType *gif_file,
-                    Image32 png_sample_image,
-                    FT_Face face,
-                    const char *text,
-                    Encode_Frame encode_frame)
-{
-    assert(gif_file->ImageCount > 0);
-    Gif_Animat gif_animat = {gif_file};
-
-    Image32 surface = {
-        .width = VODUS_WIDTH,
-        .height = VODUS_HEIGHT,
-        .pixels = new Pixel32[VODUS_WIDTH * VODUS_HEIGHT]
-    };
-    defer(delete[] surface.pixels);
-
-    float text_x = 0.0f;
-    float text_y = VODUS_HEIGHT;
-    float t = 0.0f;
-    for (int frame_index = 0; text_y > 0.0f; ++frame_index) {
-        fill_image32_with_color(surface, {50, 0, 0, 255});
-
-        gif_animat.slap_onto_image32(surface, (int) text_x, (int) text_y);
-        slap_image32_onto_image32(
-            surface,
-            png_sample_image,
-            (int) text_x + gif_animat.width(), (int) text_y);
-
-        {
-            int x = (int) text_x;
-            int y = (int) text_y;
-            slap_text_onto_image32(surface, face, text, {0, 255, 0, 255},
-                                   &x, &y);
-        }
-
-        gif_animat.update(VODUS_DELTA_TIME_SEC);
-
-        encode_frame(surface, frame_index);
-
-        text_y -= (VODUS_HEIGHT / VODUS_VIDEO_DURATION) * VODUS_DELTA_TIME_SEC;
-        t += VODUS_DELTA_TIME_SEC;
-    }
-}
-
 int main(int argc, char *argv[])
 {
-    if (argc < 6) {
-        fprintf(stderr, "Usage: ./vodus <text> <gif_image> <png_image> <font> <output>\n");
+    if (argc < 5) {
+        fprintf(stderr, "Usage: ./vodus <gif_image> <png_image> <font> <output>\n");
         exit(1);
     }
 
-    const char *text = argv[1];
-    const char *gif_filepath = argv[2];
-    const char *png_filepath = argv[3];
-    const char *face_file_path = argv[4];
-    const char *output_filepath = argv[5];
+    const char *gif_filepath = argv[1];
+    const char *png_filepath = argv[2];
+    const char *face_file_path = argv[3];
+    const char *output_filepath = argv[4];
 
     FT_Library library;
     auto error = FT_Init_FreeType(&library);
@@ -372,8 +327,6 @@ int main(int argc, char *argv[])
               });
 
     sample_chat_log_animation(face, encode_frame, &bttv);
-    // test_animation(gif_file, png_sample_image, face, text,
-    //                encode_frame);
 
     encode_avframe(context, NULL, packet, output_stream);
 
