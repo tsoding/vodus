@@ -68,7 +68,7 @@ void slap_image32_onto_image32(Image32 dest, Image32 src, int x, int y)
     }
 }
 
-// TODO: resizing version of slap_image32_onto_image32 requires some sort of interpolation
+// TODO(#24): resizing version of slap_image32_onto_image32 requires some sort of interpolation
 void slap_image32_onto_image32(Image32 dest, Image32 src,
                                int x, int y,
                                size_t target_width,
