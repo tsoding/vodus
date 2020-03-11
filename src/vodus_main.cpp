@@ -40,7 +40,7 @@ const float VODUS_DELTA_TIME_SEC = 1.0f / VODUS_FPS;
 const size_t VODUS_WIDTH = 1028;
 const size_t VODUS_HEIGHT = 768;
 const float VODUS_VIDEO_DURATION = 5.0f;
-const size_t VODUS_FONT_SIZE = 64;
+const size_t VODUS_FONT_SIZE = 128;
 
 void encode_avframe(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE *outfile)
 {
@@ -94,10 +94,10 @@ struct Message
 Message messages[] = {
     {0, "Nice_la", "hello         AYAYA /"},
     {1, "Zuglya", "\\o/"},
-    {1, "Tsoding", "monkaS"},
+    {1, "Tsoding", "phpHop"},
     {2, "recursivechat", "me me me"},
     {3, "nuffleee", "because dumb compiler"},
-    {4, "marko8137", "hi"},
+    {4, "marko8137", "hi phpHop"},
     {5, "nulligor", "meme?"},
     {6, "mbgoodman", "KKool"},
     {7, "Tsoding", "Jebaited"}
@@ -134,16 +134,14 @@ void render_message(Image32 surface, FT_Face face,
 
         if (maybe_bttv_emote.has_value) {
             auto bttv_emote = maybe_bttv_emote.unwrap;
-            // TODO(#25): BTTV gif emotes rendering is not supported
-            assert(bttv_emote.type == Bttv_Emote_Type::Png);
 
-            const float emote_ratio = (float) bttv_emote.png.width / bttv_emote.png.height;
+            const float emote_ratio = (float) bttv_emote.width() / bttv_emote.height();
             const int emote_height = VODUS_FONT_SIZE;
             const int emote_width = floorf(emote_height * emote_ratio);
 
-            slap_image32_onto_image32(surface, bttv_emote.png,
-                                      x, y - emote_height,
-                                      emote_width, emote_height);
+            bttv_emote.slap_onto_image32(surface,
+                                         x, y - emote_height,
+                                         emote_width, emote_height);
             x += emote_width;
         } else {
             slap_text_onto_image32(surface,
@@ -202,11 +200,14 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bt
         // TODO(#16): animate appearance of the message
         render_log(surface, face, message_index, bttv);
         encode_frame(surface, frame_index);
+
+        bttv->update(VODUS_DELTA_TIME_SEC);
     }
 
-    render_log(surface, face, message_index, bttv);
     const size_t TRAILING_BUFFER_SEC = 2;
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * VODUS_FPS; ++i, ++frame_index) {
+        render_log(surface, face, message_index, bttv);
+        bttv->update(VODUS_DELTA_TIME_SEC);
         encode_frame(surface, frame_index);
     }
 }
@@ -218,12 +219,7 @@ void test_animation(GifFileType *gif_file,
                     Encode_Frame encode_frame)
 {
     assert(gif_file->ImageCount > 0);
-    size_t gif_index = 0;
-    GraphicsControlBlock gcb;
-    int ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
-    float gif_delay_time = gcb.DelayTime;
-    assert(ok);
-    // TODO(#17): abstract away gif animation entity
+    Gif_Animat gif_animat = {gif_file};
 
     Image32 surface = {
         .width = VODUS_WIDTH,
@@ -238,16 +234,11 @@ void test_animation(GifFileType *gif_file,
     for (int frame_index = 0; text_y > 0.0f; ++frame_index) {
         fill_image32_with_color(surface, {50, 0, 0, 255});
 
-        slap_savedimage_onto_image32(
-            surface,
-            &gif_file->SavedImages[gif_index],
-            gif_file->SColorMap,
-            gcb,
-            (int) text_x, (int) text_y);
+        gif_animat.slap_onto_image32(surface, (int) text_x, (int) text_y);
         slap_image32_onto_image32(
             surface,
             png_sample_image,
-            (int) text_x + gif_file->SavedImages[gif_index].ImageDesc.Width, (int) text_y);
+            (int) text_x + gif_animat.width(), (int) text_y);
 
         {
             int x = (int) text_x;
@@ -256,13 +247,7 @@ void test_animation(GifFileType *gif_file,
                                    &x, &y);
         }
 
-        gif_delay_time -= VODUS_DELTA_TIME_SEC * 100;
-        if (gif_delay_time <= 0.0f) {
-            gif_index = (gif_index + 1) % gif_file->ImageCount;
-            ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
-            gif_delay_time = gcb.DelayTime;
-            assert(ok);
-        }
+        gif_animat.update(VODUS_DELTA_TIME_SEC);
 
         encode_frame(surface, frame_index);
 
@@ -327,7 +312,7 @@ int main(int argc, char *argv[])
 
     auto png_sample_image = load_image32_from_png(png_filepath);
 
-    Bttv bttv = { png_sample_image };
+    Bttv bttv = { png_sample_image, Gif_Animat {gif_file} };
 
     // FFMPEG INIT START //////////////////////////////
     AVCodec *codec = fail_if_null(
