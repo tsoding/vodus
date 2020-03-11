@@ -68,5 +68,6 @@ void println(FILE *stream, T... args)
 }
 
 // https://en.wikipedia.org/wiki/Single_Compilation_Unit
+#include "./vodus_string.cpp"
 #include "./vodus_image32.cpp"
 #include "./vodus_main.cpp"
