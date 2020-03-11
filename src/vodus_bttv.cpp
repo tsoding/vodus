@@ -26,7 +26,7 @@ struct Bttv
     Maybe<Bttv_Emote> emote_by_name(String_View name,
                                     const char *channel = nullptr)
     {
-        // TODO: Emotes in Bttv::emote_by_name are hardcoded
+        // TODO(#19): Emotes in Bttv::emote_by_name are hardcoded
         //    Some sort of a cache system is required here.
         if (name == "AYAYA"_sv) {
             return {true, {Bttv_Emote_Type::Png, ayaya_image}};
