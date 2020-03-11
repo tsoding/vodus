@@ -7,6 +7,7 @@ struct Gif_Animat
 
     void update(float dt)
     {
+        // TODO: If dt is too big Gif_Animat::index could probably go out of sync
         delay_time -= dt * 100;
         if (delay_time <= 0.0f) {
             index = (index + 1) % file->ImageCount;
