@@ -118,6 +118,40 @@ void slap_savedimage_onto_image32(Image32 dest,
     }
 }
 
+void slap_savedimage_onto_image32(Image32 dest,
+                                  SavedImage *src,
+                                  ColorMapObject *SColorMap,
+                                  GraphicsControlBlock gcb,
+                                  int x, int y,
+                                  int target_width, int target_height)
+{
+    assert(SColorMap);
+    assert(SColorMap->BitsPerPixel == 8);
+    assert(!SColorMap->SortFlag);
+    assert(src);
+    assert(src->ImageDesc.Left == 0);
+    assert(src->ImageDesc.Top == 0);
+
+    for (size_t row = 0; ((int) row < target_height); ++row) {
+        if (row + y < dest.height) {
+            for (size_t col = 0; ((int) col < target_width); ++col) {
+                if (col + x < dest.width) {
+                    int src_row = floorf((float) row / target_height * src->ImageDesc.Height);
+                    int src_col = floorf((float) col / target_width * src->ImageDesc.Width);
+
+                    auto index = src->RasterBits[src_row * src->ImageDesc.Width + src_col];
+                    if (index != gcb.TransparentColor) {
+                        auto pixel = SColorMap->Colors[index];
+                        dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
+                        dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
+                        dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
+                    }
+                }
+            }
+        }
+    }
+}
+
 Image32 load_image32_from_png(const char *filepath)
 {
     png_image image = {0};
