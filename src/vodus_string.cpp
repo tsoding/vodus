@@ -72,6 +72,11 @@ struct String_View
     }
 };
 
+String_View cstr_as_string_view(const char *cstr)
+{
+    return {strlen(cstr), cstr};
+}
+
 String_View operator ""_sv (const char *data, size_t count)
 {
     String_View result;
@@ -83,4 +88,10 @@ String_View operator ""_sv (const char *data, size_t count)
 void print1(FILE *stream, String_View view)
 {
     fwrite(view.data, 1, view.count, stream);
+}
+
+bool operator==(String_View view1, String_View view2)
+{
+    if (view1.count != view2.count) return false;
+    return memcmp(view1.data, view2.data, view1.count) == 0;
 }
