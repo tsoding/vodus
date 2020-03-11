@@ -211,6 +211,45 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bt
     }
 }
 
+struct Gif_Animat
+{
+    GifFileType *file;
+    size_t index;
+    GraphicsControlBlock gcb;
+    float delay_time;
+
+    void update(float dt)
+    {
+        delay_time -= dt * 100;
+        if (delay_time <= 0.0f) {
+            index = (index + 1) % file->ImageCount;
+            int ok = DGifSavedExtensionToGCB(file, index, &gcb);
+            assert(ok);
+            delay_time = gcb.DelayTime;
+        }
+    }
+
+    void slap_onto_image32(Image32 surface, int x, int y)
+    {
+        slap_savedimage_onto_image32(
+            surface,
+            &file->SavedImages[index],
+            file->SColorMap,
+            gcb,
+            x, y);
+    }
+
+    int width() const
+    {
+        return file->SavedImages[index].ImageDesc.Width;
+    }
+
+    int height() const
+    {
+        return file->SavedImages[index].ImageDesc.Height;
+    }
+};
+
 void test_animation(GifFileType *gif_file,
                     Image32 png_sample_image,
                     FT_Face face,
@@ -218,12 +257,7 @@ void test_animation(GifFileType *gif_file,
                     Encode_Frame encode_frame)
 {
     assert(gif_file->ImageCount > 0);
-    size_t gif_index = 0;
-    GraphicsControlBlock gcb;
-    int ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
-    float gif_delay_time = gcb.DelayTime;
-    assert(ok);
-    // TODO(#17): abstract away gif animation entity
+    Gif_Animat gif_animat = {gif_file};
 
     Image32 surface = {
         .width = VODUS_WIDTH,
@@ -238,16 +272,11 @@ void test_animation(GifFileType *gif_file,
     for (int frame_index = 0; text_y > 0.0f; ++frame_index) {
         fill_image32_with_color(surface, {50, 0, 0, 255});
 
-        slap_savedimage_onto_image32(
-            surface,
-            &gif_file->SavedImages[gif_index],
-            gif_file->SColorMap,
-            gcb,
-            (int) text_x, (int) text_y);
+        gif_animat.slap_onto_image32(surface, (int) text_x, (int) text_y);
         slap_image32_onto_image32(
             surface,
             png_sample_image,
-            (int) text_x + gif_file->SavedImages[gif_index].ImageDesc.Width, (int) text_y);
+            (int) text_x + gif_animat.width(), (int) text_y);
 
         {
             int x = (int) text_x;
@@ -256,13 +285,7 @@ void test_animation(GifFileType *gif_file,
                                    &x, &y);
         }
 
-        gif_delay_time -= VODUS_DELTA_TIME_SEC * 100;
-        if (gif_delay_time <= 0.0f) {
-            gif_index = (gif_index + 1) % gif_file->ImageCount;
-            ok = DGifSavedExtensionToGCB(gif_file, gif_index, &gcb);
-            gif_delay_time = gcb.DelayTime;
-            assert(ok);
-        }
+        gif_animat.update(VODUS_DELTA_TIME_SEC);
 
         encode_frame(surface, frame_index);
 
@@ -386,9 +409,9 @@ int main(int argc, char *argv[])
                   return m1.timestamp < m2.timestamp;
               });
 
-    sample_chat_log_animation(face, encode_frame, &bttv);
-    // test_animation(gif_file, png_sample_image, face, text,
-    //                encode_frame);
+    // sample_chat_log_animation(face, encode_frame, &bttv);
+    test_animation(gif_file, png_sample_image, face, text,
+                   encode_frame);
 
     encode_avframe(context, NULL, packet, output_stream);
 
