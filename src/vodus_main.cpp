@@ -130,7 +130,7 @@ void render_message(Image32 surface, FT_Face face,
         auto maybe_bttv_emote = bttv->emote_by_name(word);
 
         // TODO(#21): FFZ emotes are not rendered
-        // TODO: Twitch emotes are not rendered
+        // TODO(#23): Twitch emotes are not rendered
 
         if (maybe_bttv_emote.has_value) {
             auto bttv_emote = maybe_bttv_emote.unwrap;
