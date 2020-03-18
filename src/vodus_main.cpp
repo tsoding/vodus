@@ -135,7 +135,9 @@ void render_message(Image32 surface, FT_Face face,
 
             if (*x + emote_width >= (int)surface.width) {
                 *x = 0;
-                // TODO: the size of the font in render_message should be taken from the face itself
+                // TODO(#31): the size of the font in word wrapping should be taken from the face itself
+                //   Right now font size is hardcoded.
+                //   Grep for `@word-wrap-face` to find all of the hardcoded places
                 *y += VODUS_FONT_SIZE;
             }
 

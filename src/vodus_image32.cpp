@@ -232,7 +232,7 @@ void slap_text_onto_image32_wrapped(Image32 surface,
     advance_pen_for_text(face, text, &copy_x, &copy_y);
     if (copy_x >= (int)surface.width) {
         *pen_x = 0;
-        // TODO: the size of the font in slap_text_onto_image32_wrapped should be taken from the face itself
+        // @word-wrap-face
         *pen_y += VODUS_FONT_SIZE;
     }
 
