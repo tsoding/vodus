@@ -94,7 +94,57 @@ Message messages[] = {
     {4, "marko8137", "hi phpHop"},
     {5, "nulligor", "meme?"},
     {6, "mbgoodman", "KKool"},
-    {7, "Tsoding", "Jebaited"}
+    {7, "Tsoding", "Jebaited"},
+    {0, "Nice_la", "hello         AYAYA /"},
+    {1, "Zuglya", "\\o/"},
+    {1, "Tsoding", "phpHop"},
+    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
+    {2, "recursivechat", "me me me"},
+    {3, "nuffleee", "because dumb AYAYA compiler"},
+    {4, "marko8137", "hi phpHop"},
+    {5, "nulligor", "meme?"},
+    {6, "mbgoodman", "KKool"},
+    {7, "Tsoding", "Jebaited"},
+    {0, "Nice_la", "hello         AYAYA /"},
+    {1, "Zuglya", "\\o/"},
+    {1, "Tsoding", "phpHop"},
+    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
+    {2, "recursivechat", "me me me"},
+    {3, "nuffleee", "because dumb AYAYA compiler"},
+    {4, "marko8137", "hi phpHop"},
+    {5, "nulligor", "meme?"},
+    {6, "mbgoodman", "KKool"},
+    {7, "Tsoding", "Jebaited"},
+    {0, "Nice_la", "hello         AYAYA /"},
+    {1, "Zuglya", "\\o/"},
+    {1, "Tsoding", "phpHop"},
+    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
+    {2, "recursivechat", "me me me"},
+    {3, "nuffleee", "because dumb AYAYA compiler"},
+    {4, "marko8137", "hi phpHop"},
+    {5, "nulligor", "meme?"},
+    {6, "mbgoodman", "KKool"},
+    {7, "Tsoding", "Jebaited"},
+    {0, "Nice_la", "hello         AYAYA /"},
+    {1, "Zuglya", "\\o/"},
+    {1, "Tsoding", "phpHop"},
+    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
+    {2, "recursivechat", "me me me"},
+    {3, "nuffleee", "because dumb AYAYA compiler"},
+    {4, "marko8137", "hi phpHop"},
+    {5, "nulligor", "meme?"},
+    {6, "mbgoodman", "KKool"},
+    {7, "Tsoding", "Jebaited"},
+    {0, "Nice_la", "hello         AYAYA /"},
+    {1, "Zuglya", "\\o/"},
+    {1, "Tsoding", "phpHop"},
+    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
+    {2, "recursivechat", "me me me"},
+    {3, "nuffleee", "because dumb AYAYA compiler"},
+    {4, "marko8137", "hi phpHop"},
+    {5, "nulligor", "meme?"},
+    {6, "mbgoodman", "KKool"},
+    {7, "Tsoding", "Jebaited"},
 };
 
 using Encode_Frame = std::function<void(Image32, int)>;
@@ -161,17 +211,21 @@ void render_message(Image32 surface, FT_Face face,
     }
 }
 
-void render_log(Image32 surface, FT_Face face, size_t message_index, Bttv *bttv)
+bool render_log(Image32 surface, FT_Face face,
+                size_t message_begin,
+                size_t message_end,
+                Bttv *bttv)
 {
     fill_image32_with_color(surface, {0, 0, 0, 255});
     const int FONT_HEIGHT = VODUS_FONT_SIZE;
     const int CHAT_PADDING = 0;
     int text_y = FONT_HEIGHT + CHAT_PADDING;
-    for (size_t i = 0; i < message_index; ++i) {
+    for (size_t i = message_begin; i < message_end; ++i) {
         int text_x = 0;
         render_message(surface, face, messages[i], &text_x, &text_y, bttv);
         text_y += FONT_HEIGHT + CHAT_PADDING;
     }
+    return text_y > (int)surface.height;
 }
 
 void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bttv)
@@ -185,23 +239,28 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bt
     };
     defer(delete[] surface.pixels);
 
-    size_t message_index = 0;
+    size_t message_begin = 0;
+    size_t message_end = 0;
     float message_cooldown = 0.0f;
     size_t frame_index = 0;
-    for (; message_index < ARRAY_SIZE(messages); ++frame_index) {
-        printf("Current message_index = %ld\n", message_index);
+    for (; message_end < ARRAY_SIZE(messages); ++frame_index) {
+        printf("Current message_end = %ld\n", message_end);
 
         if (message_cooldown <= 0.0f) {
-            message_index += 1;
-            auto t1 = messages[message_index - 1].timestamp;
-            auto t2 = messages[message_index].timestamp;
+            message_end += 1;
+            auto t1 = messages[message_end - 1].timestamp;
+            auto t2 = messages[message_end].timestamp;
             message_cooldown = t2 - t1;
         }
 
         message_cooldown -= VODUS_DELTA_TIME_SEC;
 
         // TODO(#16): animate appearance of the message
-        render_log(surface, face, message_index, bttv);
+        // TODO: scroll implementation simply rerenders frames until they fit the screen which might be slow
+        while (render_log(surface, face, message_begin, message_end, bttv) &&
+               message_begin < ARRAY_SIZE(messages)) {
+            message_begin++;
+        }
         encode_frame(surface, frame_index);
 
         bttv->update(VODUS_DELTA_TIME_SEC);
@@ -209,7 +268,10 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bt
 
     const size_t TRAILING_BUFFER_SEC = 2;
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * VODUS_FPS; ++i, ++frame_index) {
-        render_log(surface, face, message_index, bttv);
+        while (render_log(surface, face, message_begin, message_end, bttv) &&
+               message_begin < ARRAY_SIZE(messages)) {
+            message_begin++;
+        }
         bttv->update(VODUS_DELTA_TIME_SEC);
         encode_frame(surface, frame_index);
     }
@@ -324,10 +386,9 @@ int main(int argc, char *argv[])
             encode_avframe(context, frame, packet, output_stream);
         };
 
-    std::sort(messages, messages + ARRAY_SIZE(messages),
-              [](const Message &m1, const Message &m2) {
-                  return m1.timestamp < m2.timestamp;
-              });
+    for (size_t i = 0; i < ARRAY_SIZE(messages); ++i) {
+        messages[i].timestamp = i;
+    }
 
     sample_chat_log_animation(face, encode_frame, &bttv);
 
