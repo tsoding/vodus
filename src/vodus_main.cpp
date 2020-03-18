@@ -371,7 +371,7 @@ int main(int argc, char *argv[])
             encode_avframe(context, frame, packet, output_stream);
         };
 
-    // TODO: log is not retrived directly from the Twitch API
+    // TODO(#35): log is not retrived directly from the Twitch API
     //   See https://github.com/PetterKraabol/Twitch-Chat-Downloader
     String_View input = file_as_string_view(log_filepath);
     while (input.count > 0) {
