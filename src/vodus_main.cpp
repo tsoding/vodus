@@ -256,7 +256,7 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bt
         message_cooldown -= VODUS_DELTA_TIME_SEC;
 
         // TODO(#16): animate appearance of the message
-        // TODO: scroll implementation simply rerenders frames until they fit the screen which might be slow
+        // TODO(#33): scroll implementation simply rerenders frames until they fit the screen which might be slow
         while (render_log(surface, face, message_begin, message_end, bttv) &&
                message_begin < ARRAY_SIZE(messages)) {
             message_begin++;
