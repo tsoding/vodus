@@ -263,15 +263,16 @@ String_View chop_nickname(String_View *input)
 
 int main(int argc, char *argv[])
 {
-    if (argc < 5) {
-        fprintf(stderr, "Usage: ./vodus <gif_image> <png_image> <font> <output>\n");
+    if (argc < 6) {
+        fprintf(stderr, "Usage: ./vodus <log.txt> <gif_image> <png_image> <font> <output>\n");
         exit(1);
     }
 
-    const char *gif_filepath = argv[1];
-    const char *png_filepath = argv[2];
-    const char *face_file_path = argv[3];
-    const char *output_filepath = argv[4];
+    const char *log_filepath = argv[1];
+    const char *gif_filepath = argv[2];
+    const char *png_filepath = argv[3];
+    const char *face_file_path = argv[4];
+    const char *output_filepath = argv[5];
 
     FT_Library library;
     auto error = FT_Init_FreeType(&library);
@@ -370,7 +371,7 @@ int main(int argc, char *argv[])
             encode_avframe(context, frame, packet, output_stream);
         };
 
-    String_View input = file_as_string_view("569086201.txt");
+    String_View input = file_as_string_view(log_filepath);
     while (input.count > 0) {
         assert(messages_size < VODUS_MESSAGES_CAPACITY);
         String_View message = input.chop_by_delim('\n');
