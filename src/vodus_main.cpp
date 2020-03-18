@@ -35,13 +35,6 @@ T *fail_if_null(T *ptr, const char *format, ...)
     return ptr;
 }
 
-const size_t VODUS_FPS = 30;
-const float VODUS_DELTA_TIME_SEC = 1.0f / VODUS_FPS;
-const size_t VODUS_WIDTH = 1028;
-const size_t VODUS_HEIGHT = 768;
-const float VODUS_VIDEO_DURATION = 5.0f;
-const size_t VODUS_FONT_SIZE = 64;
-
 void encode_avframe(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE *outfile)
 {
     if (frame) {
@@ -95,8 +88,9 @@ Message messages[] = {
     {0, "Nice_la", "hello         AYAYA /"},
     {1, "Zuglya", "\\o/"},
     {1, "Tsoding", "phpHop"},
+    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
     {2, "recursivechat", "me me me"},
-    {3, "nuffleee", "because dumb compiler"},
+    {3, "nuffleee", "because dumb AYAYA compiler"},
     {4, "marko8137", "hi phpHop"},
     {5, "nulligor", "meme?"},
     {6, "mbgoodman", "KKool"},
@@ -107,22 +101,22 @@ using Encode_Frame = std::function<void(Image32, int)>;
 
 void render_message(Image32 surface, FT_Face face,
                     Message message,
-                    int x, int y,
+                    int *x, int *y,
                     Bttv *bttv)
 {
     assert(bttv);
 
-    slap_text_onto_image32(surface,
-                           face,
-                           message.nickname,
-                           {255, 0, 0, 255},
-                           &x, &y);
+    slap_text_onto_image32_wrapped(surface,
+                                   face,
+                                   message.nickname,
+                                   {255, 0, 0, 255},
+                                   x, y);
 
-    slap_text_onto_image32(surface,
-                           face,
-                           ": ",
-                           {255, 0, 0, 255},
-                           &x, &y);
+    slap_text_onto_image32_wrapped(surface,
+                                   face,
+                                   ": ",
+                                   {255, 0, 0, 255},
+                                   x, y);
 
     auto text = cstr_as_string_view(message.message).trim();
     while (text.count > 0) {
@@ -139,23 +133,31 @@ void render_message(Image32 surface, FT_Face face,
             const int emote_height = VODUS_FONT_SIZE;
             const int emote_width = floorf(emote_height * emote_ratio);
 
+            if (*x + emote_width >= (int)surface.width) {
+                *x = 0;
+                // TODO(#31): the size of the font in word wrapping should be taken from the face itself
+                //   Right now font size is hardcoded.
+                //   Grep for `@word-wrap-face` to find all of the hardcoded places
+                *y += VODUS_FONT_SIZE;
+            }
+
             bttv_emote.slap_onto_image32(surface,
-                                         x, y - emote_height,
+                                         *x, *y - emote_height,
                                          emote_width, emote_height);
-            x += emote_width;
+            *x += emote_width;
         } else {
-            slap_text_onto_image32(surface,
-                                   face,
-                                   word,
-                                   {0, 255, 0, 255},
-                                   &x, &y);
+            slap_text_onto_image32_wrapped(surface,
+                                           face,
+                                           word,
+                                           {0, 255, 0, 255},
+                                           x, y);
         }
 
-        slap_text_onto_image32(surface,
-                               face,
-                               " ",
-                               {0, 255, 0, 255},
-                               &x, &y);
+        slap_text_onto_image32_wrapped(surface,
+                                       face,
+                                       " ",
+                                       {0, 255, 0, 255},
+                                       x, y);
     }
 }
 
@@ -166,7 +168,8 @@ void render_log(Image32 surface, FT_Face face, size_t message_index, Bttv *bttv)
     const int CHAT_PADDING = 0;
     int text_y = FONT_HEIGHT + CHAT_PADDING;
     for (size_t i = 0; i < message_index; ++i) {
-        render_message(surface, face, messages[i], 0, text_y, bttv);
+        int text_x = 0;
+        render_message(surface, face, messages[i], &text_x, &text_y, bttv);
         text_y += FONT_HEIGHT + CHAT_PADDING;
     }
 }

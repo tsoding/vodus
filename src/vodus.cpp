@@ -67,6 +67,13 @@ void println(FILE *stream, T... args)
     fputc('\n', stream);
 }
 
+const size_t VODUS_FPS = 30;
+const float VODUS_DELTA_TIME_SEC = 1.0f / VODUS_FPS;
+const size_t VODUS_WIDTH = 1028;
+const size_t VODUS_HEIGHT = 768;
+const float VODUS_VIDEO_DURATION = 5.0f;
+const size_t VODUS_FONT_SIZE = 64;
+
 // https://en.wikipedia.org/wiki/Single_Compilation_Unit
 #include "./vodus_string.cpp"
 #include "./vodus_image32.cpp"
