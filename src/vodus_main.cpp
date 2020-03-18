@@ -88,8 +88,9 @@ Message messages[] = {
     {0, "Nice_la", "hello         AYAYA /"},
     {1, "Zuglya", "\\o/"},
     {1, "Tsoding", "phpHop"},
+    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
     {2, "recursivechat", "me me me"},
-    {3, "nuffleee", "because dumb compiler"},
+    {3, "nuffleee", "because dumb AYAYA compiler"},
     {4, "marko8137", "hi phpHop"},
     {5, "nulligor", "meme?"},
     {6, "mbgoodman", "KKool"},
@@ -132,7 +133,12 @@ void render_message(Image32 surface, FT_Face face,
             const int emote_height = VODUS_FONT_SIZE;
             const int emote_width = floorf(emote_height * emote_ratio);
 
-            // TODO: emotes are not "word wrapped"
+            if (*x + emote_width >= (int)surface.width) {
+                *x = 0;
+                // TODO: the size of the font in render_message should be taken from the face itself
+                *y += VODUS_FONT_SIZE;
+            }
+
             bttv_emote.slap_onto_image32(surface,
                                          *x, *y - emote_height,
                                          emote_width, emote_height);
