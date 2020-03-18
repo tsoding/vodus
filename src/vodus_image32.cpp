@@ -183,6 +183,18 @@ Image32 load_image32_from_png(const char *filepath)
     return result;
 }
 
+void advance_pen_for_text(FT_Face face, String_View text, int *pen_x, int *pen_y)
+{
+    for (size_t i = 0; i < text.count; ++i) {
+        auto error = FT_Load_Glyph(
+            face,
+            FT_Get_Char_Index(face, text.data[i]),
+            FT_LOAD_DEFAULT);
+        assert(!error);
+
+        *pen_x += face->glyph->advance.x >> 6;
+    }
+}
 
 void slap_text_onto_image32(Image32 surface,
                             FT_Face face,
@@ -206,6 +218,38 @@ void slap_text_onto_image32(Image32 surface,
 
         *pen_x += face->glyph->advance.x >> 6;
     }
+}
+
+void slap_text_onto_image32_wrapped(Image32 surface,
+                                    FT_Face face,
+                                    String_View text,
+                                    Pixel32 color,
+                                    int *pen_x, int *pen_y)
+{
+    int copy_x = *pen_x;
+    int copy_y = *pen_y;
+
+    advance_pen_for_text(face, text, &copy_x, &copy_y);
+    if (copy_x >= (int)surface.width) {
+        *pen_x = 0;
+        // TODO: the size of the font in slap_text_onto_image32_wrapped should be taken from the face itself
+        *pen_y += VODUS_FONT_SIZE;
+    }
+
+    slap_text_onto_image32(surface, face, text, color, pen_x, pen_y);
+}
+
+void slap_text_onto_image32_wrapped(Image32 surface,
+                                    FT_Face face,
+                                    const char *cstr,
+                                    Pixel32 color,
+                                    int *pen_x, int *pen_y)
+{
+    slap_text_onto_image32_wrapped(surface,
+                                   face,
+                                   cstr_as_string_view(cstr),
+                                   color,
+                                   pen_x, pen_y);
 }
 
 void slap_text_onto_image32(Image32 surface,
