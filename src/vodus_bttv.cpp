@@ -100,13 +100,6 @@ struct Emote
     }
 };
 
-template <typename T>
-struct Maybe
-{
-    bool has_value;
-    T unwrap;
-};
-
 struct Bttv
 {
     Maybe<Emote> emote_by_name(String_View name,
