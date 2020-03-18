@@ -78,74 +78,12 @@ void slap_image32_onto_avframe(Image32 frame_image32, AVFrame *avframe)
 struct Message
 {
     time_t timestamp;
-    const char *nickname;
-    const char *message;
+    String_View nickname;
+    String_View message;
 };
 
-#define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
-
-Message messages[] = {
-    {0, "Nice_la", "hello         AYAYA /"},
-    {1, "Zuglya", "\\o/"},
-    {1, "Tsoding", "phpHop"},
-    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
-    {2, "recursivechat", "me me me"},
-    {3, "nuffleee", "because dumb AYAYA compiler"},
-    {4, "marko8137", "hi phpHop"},
-    {5, "nulligor", "meme?"},
-    {6, "mbgoodman", "KKool"},
-    {7, "Tsoding", "Jebaited"},
-    {0, "Nice_la", "hello         AYAYA /"},
-    {1, "Zuglya", "\\o/"},
-    {1, "Tsoding", "phpHop"},
-    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
-    {2, "recursivechat", "me me me"},
-    {3, "nuffleee", "because dumb AYAYA compiler"},
-    {4, "marko8137", "hi phpHop"},
-    {5, "nulligor", "meme?"},
-    {6, "mbgoodman", "KKool"},
-    {7, "Tsoding", "Jebaited"},
-    {0, "Nice_la", "hello         AYAYA /"},
-    {1, "Zuglya", "\\o/"},
-    {1, "Tsoding", "phpHop"},
-    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
-    {2, "recursivechat", "me me me"},
-    {3, "nuffleee", "because dumb AYAYA compiler"},
-    {4, "marko8137", "hi phpHop"},
-    {5, "nulligor", "meme?"},
-    {6, "mbgoodman", "KKool"},
-    {7, "Tsoding", "Jebaited"},
-    {0, "Nice_la", "hello         AYAYA /"},
-    {1, "Zuglya", "\\o/"},
-    {1, "Tsoding", "phpHop"},
-    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
-    {2, "recursivechat", "me me me"},
-    {3, "nuffleee", "because dumb AYAYA compiler"},
-    {4, "marko8137", "hi phpHop"},
-    {5, "nulligor", "meme?"},
-    {6, "mbgoodman", "KKool"},
-    {7, "Tsoding", "Jebaited"},
-    {0, "Nice_la", "hello         AYAYA /"},
-    {1, "Zuglya", "\\o/"},
-    {1, "Tsoding", "phpHop"},
-    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
-    {2, "recursivechat", "me me me"},
-    {3, "nuffleee", "because dumb AYAYA compiler"},
-    {4, "marko8137", "hi phpHop"},
-    {5, "nulligor", "meme?"},
-    {6, "mbgoodman", "KKool"},
-    {7, "Tsoding", "Jebaited"},
-    {0, "Nice_la", "hello         AYAYA /"},
-    {1, "Zuglya", "\\o/"},
-    {1, "Tsoding", "phpHop"},
-    {2, "Tsoding", "phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop phpHop"},
-    {2, "recursivechat", "me me me"},
-    {3, "nuffleee", "because dumb AYAYA compiler"},
-    {4, "marko8137", "hi phpHop"},
-    {5, "nulligor", "meme?"},
-    {6, "mbgoodman", "KKool"},
-    {7, "Tsoding", "Jebaited"},
-};
+Message messages[VODUS_MESSAGES_CAPACITY];
+size_t messages_size = 0;
 
 using Encode_Frame = std::function<void(Image32, int)>;
 
@@ -168,7 +106,7 @@ void render_message(Image32 surface, FT_Face face,
                                    {255, 0, 0, 255},
                                    x, y);
 
-    auto text = cstr_as_string_view(message.message).trim();
+    auto text = message.message.trim();
     while (text.count > 0) {
         auto word = text.chop_word();
         auto maybe_bttv_emote = bttv->emote_by_name(word);
@@ -243,7 +181,7 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bt
     size_t message_end = 0;
     float message_cooldown = 0.0f;
     size_t frame_index = 0;
-    for (; message_end < ARRAY_SIZE(messages); ++frame_index) {
+    for (; message_end < messages_size; ++frame_index) {
         printf("Current message_end = %ld\n", message_end);
 
         if (message_cooldown <= 0.0f) {
@@ -258,7 +196,7 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bt
         // TODO(#16): animate appearance of the message
         // TODO(#33): scroll implementation simply rerenders frames until they fit the screen which might be slow
         while (render_log(surface, face, message_begin, message_end, bttv) &&
-               message_begin < ARRAY_SIZE(messages)) {
+               message_begin < messages_size) {
             message_begin++;
         }
         encode_frame(surface, frame_index);
@@ -269,7 +207,7 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bt
     const size_t TRAILING_BUFFER_SEC = 2;
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * VODUS_FPS; ++i, ++frame_index) {
         while (render_log(surface, face, message_begin, message_end, bttv) &&
-               message_begin < ARRAY_SIZE(messages)) {
+               message_begin < messages_size) {
             message_begin++;
         }
         bttv->update(VODUS_DELTA_TIME_SEC);
@@ -277,17 +215,64 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bt
     }
 }
 
+void expect_char(String_View *input, char x)
+{
+    if (input->count == 0 || *input->data != x) {
+        println(stderr, "Expected '", x, "'");
+        abort();
+    }
+    input->chop(1);
+}
+
+String_View chop_digits(String_View *input)
+{
+    String_View digits = { 0, input->data };
+    while (input->count > 0 && isdigit(*input->data)) {
+        digits.count++;
+        input->chop(1);
+    }
+    return digits;
+}
+
+time_t chop_timestamp(String_View *input)
+{
+    *input = input->trim();
+
+    expect_char(input, '[');
+    String_View hours = chop_digits(input);
+    expect_char(input, ':');
+    String_View minutes = chop_digits(input);
+    expect_char(input, ':');
+    String_View seconds = chop_digits(input);
+    expect_char(input, ']');
+
+    const time_t timestamp =
+        hours.as_integer<time_t>().unwrap * 60 * 60 +
+        minutes.as_integer<time_t>().unwrap * 60 +
+        seconds.as_integer<time_t>().unwrap;
+
+    return timestamp;
+}
+
+String_View chop_nickname(String_View *input)
+{
+    *input = input->trim();
+    expect_char(input, '<');
+    return input->chop_by_delim('>');
+}
+
 int main(int argc, char *argv[])
 {
-    if (argc < 5) {
-        fprintf(stderr, "Usage: ./vodus <gif_image> <png_image> <font> <output>\n");
+    if (argc < 6) {
+        fprintf(stderr, "Usage: ./vodus <log.txt> <gif_image> <png_image> <font> <output>\n");
         exit(1);
     }
 
-    const char *gif_filepath = argv[1];
-    const char *png_filepath = argv[2];
-    const char *face_file_path = argv[3];
-    const char *output_filepath = argv[4];
+    const char *log_filepath = argv[1];
+    const char *gif_filepath = argv[2];
+    const char *png_filepath = argv[3];
+    const char *face_file_path = argv[4];
+    const char *output_filepath = argv[5];
 
     FT_Library library;
     auto error = FT_Init_FreeType(&library);
@@ -386,9 +371,22 @@ int main(int argc, char *argv[])
             encode_avframe(context, frame, packet, output_stream);
         };
 
-    for (size_t i = 0; i < ARRAY_SIZE(messages); ++i) {
-        messages[i].timestamp = i;
+    // TODO(#35): log is not retrived directly from the Twitch API
+    //   See https://github.com/PetterKraabol/Twitch-Chat-Downloader
+    String_View input = file_as_string_view(log_filepath);
+    while (input.count > 0) {
+        assert(messages_size < VODUS_MESSAGES_CAPACITY);
+        String_View message = input.chop_by_delim('\n');
+        messages[messages_size].timestamp = (int) chop_timestamp(&message);
+        messages[messages_size].nickname = chop_nickname(&message);
+        messages[messages_size].message = message.trim();
+        messages_size++;
     }
+    messages_size = std::min(messages_size, 20lu);
+    std::sort(messages, messages + messages_size,
+              [](const Message &m1, const Message &m2) {
+                  return m1.timestamp < m2.timestamp;
+              });
 
     sample_chat_log_animation(face, encode_frame, &bttv);
 
