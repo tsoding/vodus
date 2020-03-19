@@ -261,18 +261,108 @@ String_View chop_nickname(String_View *input)
     return input->chop_by_delim('>');
 }
 
+void usage(FILE *stream)
+{
+    println(stream, "Usage: vodus [OPTIONS] <log-filepath>");
+    println(stream, "    --help|-h                 Display this help and exit");
+    println(stream, "    --output|-o <filepath>    Output path");
+    println(stream, "    --sample-gif <filepath>   Path to a sample GIF image");
+    println(stream, "    --sample-png <filepath>   Path to a sample PNG image");
+    println(stream, "    --font <filepath>         Path to the Font face file");
+    println(stream, "    --limit <number>          Limit the amout of messages to render");
+}
+
 int main(int argc, char *argv[])
 {
-    if (argc < 6) {
-        fprintf(stderr, "Usage: ./vodus <log.txt> <gif_image> <png_image> <font> <output>\n");
+    const char *log_filepath = nullptr;
+    const char *gif_filepath = nullptr;
+    const char *png_filepath = nullptr;
+    const char *face_filepath = nullptr;
+    const char *output_filepath = nullptr;
+    size_t messages_limit = VODUS_MESSAGES_CAPACITY;
+
+    for (int i = 1; i < argc;) {
+        const char *arg = argv[i];
+        if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0)  {
+            usage(stdout);
+            exit(0);
+        } else if (strcmp(arg, "--sample-gif") == 0) {
+            if (i + 1 >= argc) {
+                println(stderr, "Error: No argument is provided for `", arg, "`");
+                usage(stderr);
+                exit(1);
+            }
+
+            gif_filepath = argv[i + 1];
+
+            i += 2;
+        } else if (strcmp(arg, "--sample-png") == 0) {
+            if (i + 1 >= argc) {
+                println(stderr, "Error: No argument is provided for `", arg, "`");
+                usage(stderr);
+                exit(1);
+            }
+
+            png_filepath = argv[i + 1];
+
+            i += 2;
+        } else if (strcmp(arg, "--font") == 0) {
+            if (i + 1 >= argc) {
+                println(stderr, "Error: No argument is provided for `", arg, "`");
+                usage(stderr);
+                exit(1);
+            }
+
+            face_filepath = argv[i + 1];
+
+            i += 2;
+        } else if (strcmp(arg, "--output") == 0 || strcmp(arg, "-o") == 0) {
+            if (i + 1 >= argc) {
+                println(stderr, "Error: No argument is provided for `", arg, "`");
+                usage(stderr);
+                exit(1);
+            }
+
+            output_filepath = argv[i + 1];
+
+            i += 2;
+        } else if (strcmp(arg, "--limit") == 0) {
+            if (i + 1 >= argc) {
+                println(stderr, "Error: No argument is provided for `", arg, "`");
+                usage(stderr);
+                exit(1);
+            }
+            
+            auto arg_integer = cstr_as_string_view(arg).as_integer<size_t>();
+
+            if (arg_integer.has_value) {
+                println(stderr, "Error: `", arg, "` is not an integer");
+                usage(stderr);
+                exit(1);
+            }
+
+            messages_limit = arg_integer.unwrap;
+
+            i += 2;
+        } else {
+            if (log_filepath != nullptr) {
+                println(stderr, "Error: Input log file is provided twice");
+                usage(stderr);
+                exit(1);
+            }
+
+            log_filepath = argv[i];
+
+            i += 1;
+        }
+    }
+
+    if (face_filepath == nullptr) {
+        println(stderr, "Error: Font was not provided. Please use `--font` flag.");
+        usage(stderr);
         exit(1);
     }
 
-    const char *log_filepath = argv[1];
-    const char *gif_filepath = argv[2];
-    const char *png_filepath = argv[3];
-    const char *face_file_path = argv[4];
-    const char *output_filepath = argv[5];
 
     FT_Library library;
     auto error = FT_Init_FreeType(&library);
@@ -283,22 +373,22 @@ int main(int argc, char *argv[])
 
     FT_Face face;
     error = FT_New_Face(library,
-                        face_file_path,
+                        face_filepath,
                         0,
                         &face);
     if (error == FT_Err_Unknown_File_Format) {
         fprintf(stderr,
                 "%s appears to have an unsuppoted format\n",
-                face_file_path);
+                face_filepath);
         exit(1);
     } else if (error) {
         fprintf(stderr,
                 "%s could not be opened\n",
-                face_file_path);
+                face_filepath);
         exit(1);
     }
 
-    printf("Loaded %s\n", face_file_path);
+    printf("Loaded %s\n", face_filepath);
     printf("\tnum_glyphs = %ld\n", face->num_glyphs);
 
     error = FT_Set_Pixel_Sizes(face, 0, VODUS_FONT_SIZE);
@@ -307,17 +397,23 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    auto gif_file = DGifOpenFileName(gif_filepath, &error);
-    if (error) {
-        fprintf(stderr, "Could not read gif file: %s\n", gif_filepath);
-        exit(1);
+    Gif_Animat sample_gif_animat = {};
+    if (gif_filepath) {
+        sample_gif_animat.file = DGifOpenFileName(gif_filepath, &error);
+        if (error) {
+            fprintf(stderr, "Could not read gif file: %s\n", gif_filepath);
+            exit(1);
+        }
+        assert(error == 0);
+        DGifSlurp(sample_gif_animat.file);
     }
-    assert(error == 0);
-    DGifSlurp(gif_file);
 
-    auto png_sample_image = load_image32_from_png(png_filepath);
+    Image32 sample_png_image = {};
+    if (png_filepath) {
+        sample_png_image = load_image32_from_png(png_filepath);
+    }
 
-    Bttv bttv = { png_sample_image, Gif_Animat {gif_file} };
+    Bttv bttv = { sample_png_image, sample_gif_animat };
 
     // FFMPEG INIT START //////////////////////////////
     AVCodec *codec = fail_if_null(
@@ -347,6 +443,12 @@ int main(int argc, char *argv[])
 
     avec(avcodec_open2(context, codec, NULL));
 
+    if (output_filepath == nullptr) {
+        println(stderr, "Error: Output filepath is not provided. Use `--output` flag.");
+        usage(stderr);
+        exit(1);
+    }
+
     FILE *output_stream = fail_if_null(
         fopen(output_filepath, "wb"),
         "Could not open %s\n", output_filepath);
@@ -373,6 +475,11 @@ int main(int argc, char *argv[])
 
     // TODO(#35): log is not retrived directly from the Twitch API
     //   See https://github.com/PetterKraabol/Twitch-Chat-Downloader
+    if (log_filepath == nullptr) {
+        println(stderr, "Input log file is not provided");
+        usage(stderr);
+        exit(1);
+    }
     String_View input = file_as_string_view(log_filepath);
     while (input.count > 0) {
         assert(messages_size < VODUS_MESSAGES_CAPACITY);
@@ -382,7 +489,7 @@ int main(int argc, char *argv[])
         messages[messages_size].message = message.trim();
         messages_size++;
     }
-    messages_size = std::min(messages_size, 20lu);
+    messages_size = std::min(messages_size, messages_limit);
     std::sort(messages, messages + messages_size,
               [](const Message &m1, const Message &m2) {
                   return m1.timestamp < m2.timestamp;
