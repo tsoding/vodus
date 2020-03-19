@@ -266,8 +266,8 @@ void usage(FILE *stream)
     println(stream, "Usage: vodus [OPTIONS] <log-filepath>");
     println(stream, "    --help|-h                 Display this help and exit");
     println(stream, "    --output|-o <filepath>    Output path");
-    println(stream, "    --gif <filepath>          Path to a sample GIF image");
-    println(stream, "    --png <filepath>          Path to a sample PNG image");
+    println(stream, "    --sample-gif <filepath>   Path to a sample GIF image");
+    println(stream, "    --sample-png <filepath>   Path to a sample PNG image");
     println(stream, "    --font <filepath>         Path to the Font face file");
 }
 
@@ -284,7 +284,7 @@ int main(int argc, char *argv[])
         if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0)  {
             usage(stdout);
             exit(0);
-        } else if (strcmp(arg, "--gif") == 0) {
+        } else if (strcmp(arg, "--sample-gif") == 0) {
             if (i + 1 >= argc) {
                 println(stderr, "Error: No argument is provided for `", arg, "`");
                 usage(stderr);
@@ -294,7 +294,7 @@ int main(int argc, char *argv[])
             gif_filepath = argv[i + 1];
 
             i += 2;
-        } else if (strcmp(arg, "--png") == 0) {
+        } else if (strcmp(arg, "--sample-png") == 0) {
             if (i + 1 >= argc) {
                 println(stderr, "Error: No argument is provided for `", arg, "`");
                 usage(stderr);
