@@ -333,9 +333,9 @@ int main(int argc, char *argv[])
                 exit(1);
             }
             
-            auto arg_integer = cstr_as_string_view(arg).as_integer<size_t>();
+            auto arg_integer = cstr_as_string_view(argv[i+1]).as_integer<size_t>();
 
-            if (arg_integer.has_value) {
+            if (!arg_integer.has_value) {
                 println(stderr, "Error: `", arg, "` is not an integer");
                 usage(stderr);
                 exit(1);
