@@ -8,6 +8,11 @@ struct Image32
     size_t width;
     size_t height;
     Pixel32 *pixels;
+
+    bool is_null() const
+    {
+        return pixels == nullptr;
+    }
 };
 
 int save_image32_as_png(Image32 image, const char *filename)

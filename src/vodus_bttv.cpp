@@ -5,8 +5,15 @@ struct Gif_Animat
     GraphicsControlBlock gcb;
     float delay_time;
 
+    bool is_null() const
+    {
+        return file == nullptr;
+    }
+
     void update(float dt)
     {
+        if (is_null()) return;
+            
         // TODO(#29): If dt is too big Gif_Animat::index could probably go out of sync
         delay_time -= dt * 100;
         if (delay_time <= 0.0f) {
@@ -19,33 +26,36 @@ struct Gif_Animat
 
     void slap_onto_image32(Image32 surface, int x, int y)
     {
+        if (is_null()) return;
+
         slap_savedimage_onto_image32(
-            surface,
-            &file->SavedImages[index],
-            file->SColorMap,
-            gcb,
-            x, y);
+                surface,
+                &file->SavedImages[index],
+                file->SColorMap,
+                gcb,
+                x, y);
     }
 
     void slap_onto_image32(Image32 surface, int x, int y, int w, int h)
     {
+        if (is_null()) return;
         slap_savedimage_onto_image32(
-            surface,
-            &file->SavedImages[index],
-            file->SColorMap,
-            gcb,
-            x, y,
-            w, h);
+                surface,
+                &file->SavedImages[index],
+                file->SColorMap,
+                gcb,
+                x, y,
+                w, h);
     }
 
     int width() const
     {
-        return file->SavedImages[index].ImageDesc.Width;
+        return is_null() ? 0 : file->SavedImages[index].ImageDesc.Width;
     }
 
     int height() const
     {
-        return file->SavedImages[index].ImageDesc.Height;
+        return is_null() ? 0 : file->SavedImages[index].ImageDesc.Height;
     }
 };
 
@@ -103,15 +113,15 @@ struct Emote
 struct Bttv
 {
     Maybe<Emote> emote_by_name(String_View name,
-                                    const char *channel = nullptr)
+                               const char *channel = nullptr)
     {
         // TODO(#19): Emotes in Bttv::emote_by_name are hardcoded
         //    Some sort of a cache system is required here.
-        if (name == "AYAYA"_sv) {
+        if (name == "AYAYA"_sv && !ayaya_image.is_null()) {
             Emote emote = {Emote::Png};
             emote.png = ayaya_image;
             return {true, emote};
-        } else if (name == "phpHop"_sv) {
+        } else if (name == "phpHop"_sv && !php_hop.is_null()) {
             Emote emote = {Emote::Gif};
             emote.gif = php_hop;
             return {true, emote};
