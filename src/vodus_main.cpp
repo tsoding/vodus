@@ -269,6 +269,7 @@ void usage(FILE *stream)
     println(stream, "    --sample-gif <filepath>   Path to a sample GIF image");
     println(stream, "    --sample-png <filepath>   Path to a sample PNG image");
     println(stream, "    --font <filepath>         Path to the Font face file");
+    println(stream, "    --limit <number>          Limit the amout of messages to render");
 }
 
 int main(int argc, char *argv[])
@@ -278,6 +279,7 @@ int main(int argc, char *argv[])
     const char *png_filepath = nullptr;
     const char *face_filepath = nullptr;
     const char *output_filepath = nullptr;
+    size_t messages_limit = VODUS_MESSAGES_CAPACITY;
 
     for (int i = 1; i < argc;) {
         const char *arg = argv[i];
@@ -322,6 +324,24 @@ int main(int argc, char *argv[])
             }
 
             output_filepath = argv[i + 1];
+
+            i += 2;
+        } else if (strcmp(arg, "--limit") == 0) {
+            if (i + 1 >= argc) {
+                println(stderr, "Error: No argument is provided for `", arg, "`");
+                usage(stderr);
+                exit(1);
+            }
+            
+            auto arg_integer = cstr_as_string_view(arg).as_integer<size_t>();
+
+            if (arg_integer.has_value) {
+                println(stderr, "Error: `", arg, "` is not an integer");
+                usage(stderr);
+                exit(1);
+            }
+
+            messages_limit = arg_integer.unwrap;
 
             i += 2;
         } else {
@@ -469,7 +489,7 @@ int main(int argc, char *argv[])
         messages[messages_size].message = message.trim();
         messages_size++;
     }
-    messages_size = std::min(messages_size, 20lu);
+    messages_size = std::min(messages_size, messages_limit);
     std::sort(messages, messages + messages_size,
               [](const Message &m1, const Message &m2) {
                   return m1.timestamp < m2.timestamp;

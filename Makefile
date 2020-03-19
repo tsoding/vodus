@@ -12,4 +12,4 @@ vodus: src/vodus.cpp src/vodus_image32.cpp src/vodus_main.cpp
 render: output.mpeg
 
 output.mpeg: vodus
-	./vodus --sample-png assets/ayaya.png --sample-gif assets/phpHop.gif --font assets/ComicNeue_Bold.otf --output output.mpeg sample.txt
+	./vodus --sample-png assets/ayaya.png --sample-gif assets/phpHop.gif --font assets/ComicNeue_Bold.otf --output output.mpeg 569086201.txt
