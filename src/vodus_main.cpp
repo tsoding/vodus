@@ -283,78 +283,56 @@ int main(int argc, char *argv[])
 
     for (int i = 1; i < argc;) {
         const char *arg = argv[i];
+
+#define BEGIN_PARAMETER(name)                                           \
+        if (i + 1 >= argc) {                                            \
+            println(stderr, "Error: No argument is provided for `", arg, "`"); \
+            usage(stderr);                                              \
+            exit(1);                                                    \
+        }                                                               \
+        const char * name = argv[i + 1]
+
+#define END_PARAMETER i += 2
+
         if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0)  {
             usage(stdout);
             exit(0);
         } else if (strcmp(arg, "--sample-gif") == 0) {
-            if (i + 1 >= argc) {
-                println(stderr, "Error: No argument is provided for `", arg, "`");
-                usage(stderr);
-                exit(1);
-            }
-
-            gif_filepath = argv[i + 1];
-
-            i += 2;
+            BEGIN_PARAMETER(filepath);
+            gif_filepath = filepath;
+            END_PARAMETER;
         } else if (strcmp(arg, "--sample-png") == 0) {
-            if (i + 1 >= argc) {
-                println(stderr, "Error: No argument is provided for `", arg, "`");
-                usage(stderr);
-                exit(1);
-            }
-
-            png_filepath = argv[i + 1];
-
-            i += 2;
+            BEGIN_PARAMETER(filepath);
+            png_filepath = filepath;
+            END_PARAMETER;
         } else if (strcmp(arg, "--font") == 0) {
-            if (i + 1 >= argc) {
-                println(stderr, "Error: No argument is provided for `", arg, "`");
-                usage(stderr);
-                exit(1);
-            }
-
-            face_filepath = argv[i + 1];
-
-            i += 2;
+            BEGIN_PARAMETER(filepath);
+            face_filepath = filepath;
+            END_PARAMETER;
         } else if (strcmp(arg, "--output") == 0 || strcmp(arg, "-o") == 0) {
-            if (i + 1 >= argc) {
-                println(stderr, "Error: No argument is provided for `", arg, "`");
-                usage(stderr);
-                exit(1);
-            }
-
-            output_filepath = argv[i + 1];
-
-            i += 2;
+            BEGIN_PARAMETER(filepath);
+            output_filepath = filepath;
+            END_PARAMETER;
         } else if (strcmp(arg, "--limit") == 0) {
-            if (i + 1 >= argc) {
-                println(stderr, "Error: No argument is provided for `", arg, "`");
-                usage(stderr);
-                exit(1);
-            }
-            
-            auto arg_integer = cstr_as_string_view(argv[i+1]).as_integer<size_t>();
+            BEGIN_PARAMETER(limit_cstr);
 
-            if (!arg_integer.has_value) {
+            auto limit_maybe_integer = cstr_as_string_view(limit_cstr).as_integer<size_t>();
+            if (!limit_maybe_integer.has_value) {
                 println(stderr, "Error: `", arg, "` is not an integer");
                 usage(stderr);
                 exit(1);
             }
+            messages_limit = limit_maybe_integer.unwrap;
 
-            messages_limit = arg_integer.unwrap;
-
-            i += 2;
+            END_PARAMETER;
         } else {
-            if (log_filepath != nullptr) {
-                println(stderr, "Error: Input log file is provided twice");
-                usage(stderr);
-                exit(1);
-            }
-
-            log_filepath = argv[i];
-
-            i += 1;
+            BEGIN_PARAMETER(filepath);
+            log_filepath = filepath;
+            END_PARAMETER;
         }
+
+#undef END_PARAMETER
+#undef BEGIN_PARAMETER
     }
 
     if (face_filepath == nullptr) {
