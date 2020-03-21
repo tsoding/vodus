@@ -326,9 +326,15 @@ int main(int argc, char *argv[])
 
             END_PARAMETER;
         } else {
-            BEGIN_PARAMETER(filepath);
-            log_filepath = filepath;
-            END_PARAMETER;
+            if (log_filepath != nullptr) {
+                println(stderr, "Error: Input log file is provided twice");
+                usage(stderr);
+                exit(1);
+            }
+
+            log_filepath = argv[i];
+
+            i += 1;
         }
 
 #undef END_PARAMETER
