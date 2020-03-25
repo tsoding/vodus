@@ -110,31 +110,103 @@ struct Emote
     }
 };
 
+const size_t BTTV_MAPPING_CAPACITY = 1024;
+
+struct Bttv_Mapping
+{
+    String_View name;
+    String_View file;
+    Maybe<Emote> emote;
+};
+
+String_View file_extension(String_View filename)
+{
+    String_View ext = {};
+    while (filename.count != 0) {
+        ext = filename.chop_by_delim('.');
+    }
+    return ext;
+}
+
+Emote load_gif_emote(String_View filepath)
+{
+    Emote emote = {Emote::Gif};
+
+    auto filepath_cstr = string_view_as_cstr(filepath);
+    defer(delete[] filepath_cstr);
+
+    int error = 0;
+    emote.gif.file = DGifOpenFileName(filepath_cstr, &error);
+    if (error) {
+        println(stderr, "Could not read gif file: ", filepath);
+        exit(1);
+    }
+    assert(error == 0);
+    DGifSlurp(emote.gif.file);
+
+    return emote;
+}
+
+Emote load_png_emote(String_View filepath)
+{
+    Emote emote = {Emote::Png};
+    auto filepath_cstr = string_view_as_cstr(filepath);
+    defer(delete[] filepath_cstr);
+    emote.png = load_image32_from_png(filepath_cstr);
+    return emote;
+}
+
 struct Bttv
 {
     Maybe<Emote> emote_by_name(String_View name,
                                const char *channel = nullptr)
     {
-        // TODO(#19): Emotes in Bttv::emote_by_name are hardcoded
-        //    Some sort of a cache system is required here.
-        if (name == "AYAYA"_sv && !ayaya_image.is_null()) {
-            Emote emote = {Emote::Png};
-            emote.png = ayaya_image;
-            return {true, emote};
-        } else if (name == "phpHop"_sv && !php_hop.is_null()) {
-            Emote emote = {Emote::Gif};
-            emote.gif = php_hop;
-            return {true, emote};
+        auto maybe_mapping_index = mapping_by_name(name);
+        if (!maybe_mapping_index.has_value) return {};
+        auto mapping_index = maybe_mapping_index.unwrap;
+
+        if (!bttv_mapping[mapping_index].emote.has_value) {
+            auto filename = bttv_mapping[mapping_index].file;
+            auto ext = file_extension(filename);
+
+            if (ext == "gif"_sv) {
+                bttv_mapping[mapping_index].emote = {true, load_gif_emote(filename)};
+            } else if (ext == "png"_sv) {
+                bttv_mapping[mapping_index].emote = {true, load_png_emote(filename)};
+            } else {
+                println(stderr, filename, " has unsupported extension ", ext);
+                abort();
+            }
+        }
+
+        return bttv_mapping[mapping_index].emote;
+    }
+
+    void update(float delta_time)
+    {
+        for (size_t i = 0; i < bttv_mapping_count; ++i) {
+            if (!bttv_mapping[i].emote.has_value) continue;
+            if (bttv_mapping[i].emote.unwrap.type != Emote::Gif) continue;
+            bttv_mapping[i].emote.unwrap.gif.update(delta_time);
+        }
+    }
+
+    Maybe<size_t> mapping_by_name(String_View name)
+    {
+        for (size_t i = 0; i < bttv_mapping_count; ++i) {
+            if (bttv_mapping[i].name == name) {
+                return {true, i};
+            }
         }
 
         return {};
     }
 
-    void update(float delta_time)
+    void add_mapping(String_View name, String_View file)
     {
-        php_hop.update(delta_time);
+        bttv_mapping[bttv_mapping_count++] = {name, file};
     }
 
-    Image32 ayaya_image;
-    Gif_Animat php_hop;
+    Bttv_Mapping bttv_mapping[BTTV_MAPPING_CAPACITY] = {};
+    size_t bttv_mapping_count = 0;
 };

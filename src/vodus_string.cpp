@@ -111,6 +111,14 @@ String_View cstr_as_string_view(const char *cstr)
     return {strlen(cstr), cstr};
 }
 
+const char *string_view_as_cstr(String_View s)
+{
+    char *cstr = new char[s.count + 1];
+    memcpy(cstr, s.data, s.count);
+    cstr[s.count] = '\0';
+    return cstr;
+}
+
 String_View operator ""_sv (const char *data, size_t count)
 {
     String_View result;

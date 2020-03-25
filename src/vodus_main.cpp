@@ -1,15 +1,3 @@
-template <typename F>
-struct Defer
-{
-    Defer(F f): f(f) {}
-    ~Defer() { f(); }
-    F f;
-};
-
-#define CONCAT0(a, b) a##b
-#define CONCAT(a, b) CONCAT0(a, b)
-#define defer(body) Defer CONCAT(defer, __LINE__)([&]() { body; })
-
 void avec(int code)
 {
     if (code < 0) {
@@ -397,7 +385,13 @@ int main(int argc, char *argv[])
         sample_png_image = load_image32_from_png(png_filepath);
     }
 
-    Bttv bttv = { sample_png_image, sample_gif_animat };
+    Bttv bttv = { };
+    auto mapping_csv = file_as_string_view("./mapping.csv");
+    while (mapping_csv.count > 0) {
+        auto line = mapping_csv.chop_by_delim('\n');
+        auto name = line.chop_by_delim(',');
+        bttv.add_mapping(name, line);
+    }
 
     // FFMPEG INIT START //////////////////////////////
     AVCodec *codec = fail_if_null(

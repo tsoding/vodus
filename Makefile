@@ -12,4 +12,4 @@ vodus: $(wildcard src/vodus*.cpp)
 render: output.mpeg
 
 output.mpeg: vodus
-	./vodus --sample-png assets/ayaya.png --sample-gif assets/phpHop.gif --font assets/ComicNeue_Bold.otf --output output.mpeg 569086201.txt
+	./vodus --sample-png assets/ayaya.png --sample-gif assets/phpHop.gif --font assets/ComicNeue_Bold.otf --output output.mpeg sample.txt
