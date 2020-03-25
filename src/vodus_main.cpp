@@ -99,9 +99,7 @@ void render_message(Image32 surface, FT_Face face,
         auto word = text.chop_word();
         auto maybe_emote = emote_cache->emote_by_name(word);
 
-        // TODO(#21): FFZ emotes are not rendered
         // TODO(#23): Twitch emotes are not rendered
-
         if (maybe_emote.has_value) {
             auto emote = maybe_emote.unwrap;
 
@@ -358,6 +356,7 @@ int main(int argc, char *argv[])
     }
 
     // TODO: BTTV mapping is not auto populated from the BTTV API
+    // TODO: FFZ mapping is not auto populated from the FFZ API
     Emote_Cache emote_cache = { };
     auto mapping_csv = file_as_string_view("./mapping.csv");
     while (mapping_csv.count > 0) {
