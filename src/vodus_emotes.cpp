@@ -110,14 +110,7 @@ struct Emote
     }
 };
 
-const size_t BTTV_MAPPING_CAPACITY = 1024;
-
-struct Bttv_Mapping
-{
-    String_View name;
-    String_View file;
-    Maybe<Emote> emote;
-};
+const size_t EMOTE_MAPPING_CAPACITY = 1024;
 
 String_View file_extension(String_View filename)
 {
@@ -156,7 +149,14 @@ Emote load_png_emote(String_View filepath)
     return emote;
 }
 
-struct Bttv
+struct Emote_Mapping
+{
+    String_View name;
+    String_View file;
+    Maybe<Emote> emote;
+};
+
+struct Emote_Cache
 {
     Maybe<Emote> emote_by_name(String_View name,
                                const char *channel = nullptr)
@@ -165,36 +165,36 @@ struct Bttv
         if (!maybe_mapping_index.has_value) return {};
         auto mapping_index = maybe_mapping_index.unwrap;
 
-        if (!bttv_mapping[mapping_index].emote.has_value) {
-            auto filename = bttv_mapping[mapping_index].file;
+        if (!emote_mapping[mapping_index].emote.has_value) {
+            auto filename = emote_mapping[mapping_index].file;
             auto ext = file_extension(filename);
 
             if (ext == "gif"_sv) {
-                bttv_mapping[mapping_index].emote = {true, load_gif_emote(filename)};
+                emote_mapping[mapping_index].emote = {true, load_gif_emote(filename)};
             } else if (ext == "png"_sv) {
-                bttv_mapping[mapping_index].emote = {true, load_png_emote(filename)};
+                emote_mapping[mapping_index].emote = {true, load_png_emote(filename)};
             } else {
                 println(stderr, filename, " has unsupported extension ", ext);
                 abort();
             }
         }
 
-        return bttv_mapping[mapping_index].emote;
+        return emote_mapping[mapping_index].emote;
     }
 
-    void update(float delta_time)
+    void update_gifs(float delta_time)
     {
-        for (size_t i = 0; i < bttv_mapping_count; ++i) {
-            if (!bttv_mapping[i].emote.has_value) continue;
-            if (bttv_mapping[i].emote.unwrap.type != Emote::Gif) continue;
-            bttv_mapping[i].emote.unwrap.gif.update(delta_time);
+        for (size_t i = 0; i < emote_mapping_count; ++i) {
+            if (!emote_mapping[i].emote.has_value) continue;
+            if (emote_mapping[i].emote.unwrap.type != Emote::Gif) continue;
+            emote_mapping[i].emote.unwrap.gif.update(delta_time);
         }
     }
 
     Maybe<size_t> mapping_by_name(String_View name)
     {
-        for (size_t i = 0; i < bttv_mapping_count; ++i) {
-            if (bttv_mapping[i].name == name) {
+        for (size_t i = 0; i < emote_mapping_count; ++i) {
+            if (emote_mapping[i].name == name) {
                 return {true, i};
             }
         }
@@ -204,9 +204,9 @@ struct Bttv
 
     void add_mapping(String_View name, String_View file)
     {
-        bttv_mapping[bttv_mapping_count++] = {name, file};
+        emote_mapping[emote_mapping_count++] = {name, file};
     }
 
-    Bttv_Mapping bttv_mapping[BTTV_MAPPING_CAPACITY] = {};
-    size_t bttv_mapping_count = 0;
+    Emote_Mapping emote_mapping[EMOTE_MAPPING_CAPACITY] = {};
+    size_t emote_mapping_count = 0;
 };

@@ -78,9 +78,9 @@ using Encode_Frame = std::function<void(Image32, int)>;
 void render_message(Image32 surface, FT_Face face,
                     Message message,
                     int *x, int *y,
-                    Bttv *bttv)
+                    Emote_Cache *emote_cache)
 {
-    assert(bttv);
+    assert(emote_cache);
 
     slap_text_onto_image32_wrapped(surface,
                                    face,
@@ -97,15 +97,15 @@ void render_message(Image32 surface, FT_Face face,
     auto text = message.message.trim();
     while (text.count > 0) {
         auto word = text.chop_word();
-        auto maybe_bttv_emote = bttv->emote_by_name(word);
+        auto maybe_emote = emote_cache->emote_by_name(word);
 
         // TODO(#21): FFZ emotes are not rendered
         // TODO(#23): Twitch emotes are not rendered
 
-        if (maybe_bttv_emote.has_value) {
-            auto bttv_emote = maybe_bttv_emote.unwrap;
+        if (maybe_emote.has_value) {
+            auto emote = maybe_emote.unwrap;
 
-            const float emote_ratio = (float) bttv_emote.width() / bttv_emote.height();
+            const float emote_ratio = (float) emote.width() / emote.height();
             const int emote_height = VODUS_FONT_SIZE;
             const int emote_width = floorf(emote_height * emote_ratio);
 
@@ -117,9 +117,9 @@ void render_message(Image32 surface, FT_Face face,
                 *y += VODUS_FONT_SIZE;
             }
 
-            bttv_emote.slap_onto_image32(surface,
-                                         *x, *y - emote_height,
-                                         emote_width, emote_height);
+            emote.slap_onto_image32(surface,
+                                    *x, *y - emote_height,
+                                    emote_width, emote_height);
             *x += emote_width;
         } else {
             slap_text_onto_image32_wrapped(surface,
@@ -140,7 +140,7 @@ void render_message(Image32 surface, FT_Face face,
 bool render_log(Image32 surface, FT_Face face,
                 size_t message_begin,
                 size_t message_end,
-                Bttv *bttv)
+                Emote_Cache *emote_cache)
 {
     fill_image32_with_color(surface, {0, 0, 0, 255});
     const int FONT_HEIGHT = VODUS_FONT_SIZE;
@@ -148,15 +148,15 @@ bool render_log(Image32 surface, FT_Face face,
     int text_y = FONT_HEIGHT + CHAT_PADDING;
     for (size_t i = message_begin; i < message_end; ++i) {
         int text_x = 0;
-        render_message(surface, face, messages[i], &text_x, &text_y, bttv);
+        render_message(surface, face, messages[i], &text_x, &text_y, emote_cache);
         text_y += FONT_HEIGHT + CHAT_PADDING;
     }
     return text_y > (int)surface.height;
 }
 
-void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bttv)
+void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Emote_Cache *emote_cache)
 {
-    assert(bttv);
+    assert(emote_cache);
 
     Image32 surface = {
         .width = VODUS_WIDTH,
@@ -183,22 +183,22 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Bttv *bt
 
         // TODO(#16): animate appearance of the message
         // TODO(#33): scroll implementation simply rerenders frames until they fit the screen which might be slow
-        while (render_log(surface, face, message_begin, message_end, bttv) &&
+        while (render_log(surface, face, message_begin, message_end, emote_cache) &&
                message_begin < messages_size) {
             message_begin++;
         }
         encode_frame(surface, frame_index);
 
-        bttv->update(VODUS_DELTA_TIME_SEC);
+        emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
     }
 
     const size_t TRAILING_BUFFER_SEC = 2;
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * VODUS_FPS; ++i, ++frame_index) {
-        while (render_log(surface, face, message_begin, message_end, bttv) &&
+        while (render_log(surface, face, message_begin, message_end, emote_cache) &&
                message_begin < messages_size) {
             message_begin++;
         }
-        bttv->update(VODUS_DELTA_TIME_SEC);
+        emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
         encode_frame(surface, frame_index);
     }
 }
@@ -357,12 +357,13 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    Bttv bttv = { };
+    // TODO: BTTV mapping is not auto populated from the BTTV API
+    Emote_Cache emote_cache = { };
     auto mapping_csv = file_as_string_view("./mapping.csv");
     while (mapping_csv.count > 0) {
         auto line = mapping_csv.chop_by_delim('\n');
         auto name = line.chop_by_delim(',');
-        bttv.add_mapping(name, line);
+        emote_cache.add_mapping(name, line);
     }
 
     // FFMPEG INIT START //////////////////////////////
@@ -445,7 +446,7 @@ int main(int argc, char *argv[])
                   return m1.timestamp < m2.timestamp;
               });
 
-    sample_chat_log_animation(face, encode_frame, &bttv);
+    sample_chat_log_animation(face, encode_frame, &emote_cache);
 
     encode_avframe(context, NULL, packet, output_stream);
 

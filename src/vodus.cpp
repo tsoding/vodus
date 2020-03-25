@@ -40,5 +40,5 @@ struct Defer
 #include "./vodus_print.cpp"
 #include "./vodus_string.cpp"
 #include "./vodus_image32.cpp"
-#include "./vodus_bttv.cpp"
+#include "./vodus_emotes.cpp"
 #include "./vodus_main.cpp"
