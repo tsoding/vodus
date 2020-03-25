@@ -254,8 +254,6 @@ void usage(FILE *stream)
     println(stream, "Usage: vodus [OPTIONS] <log-filepath>");
     println(stream, "    --help|-h                 Display this help and exit");
     println(stream, "    --output|-o <filepath>    Output path");
-    println(stream, "    --sample-gif <filepath>   Path to a sample GIF image");
-    println(stream, "    --sample-png <filepath>   Path to a sample PNG image");
     println(stream, "    --font <filepath>         Path to the Font face file");
     println(stream, "    --limit <number>          Limit the amout of messages to render");
 }
@@ -263,8 +261,6 @@ void usage(FILE *stream)
 int main(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
-    const char *gif_filepath = nullptr;
-    const char *png_filepath = nullptr;
     const char *face_filepath = nullptr;
     const char *output_filepath = nullptr;
     size_t messages_limit = VODUS_MESSAGES_CAPACITY;
@@ -285,14 +281,6 @@ int main(int argc, char *argv[])
         if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0)  {
             usage(stdout);
             exit(0);
-        } else if (strcmp(arg, "--sample-gif") == 0) {
-            BEGIN_PARAMETER(filepath);
-            gif_filepath = filepath;
-            END_PARAMETER;
-        } else if (strcmp(arg, "--sample-png") == 0) {
-            BEGIN_PARAMETER(filepath);
-            png_filepath = filepath;
-            END_PARAMETER;
         } else if (strcmp(arg, "--font") == 0) {
             BEGIN_PARAMETER(filepath);
             face_filepath = filepath;
@@ -367,22 +355,6 @@ int main(int argc, char *argv[])
     if (error) {
         fprintf(stderr, "Could not set font size in pixels\n");
         exit(1);
-    }
-
-    Gif_Animat sample_gif_animat = {};
-    if (gif_filepath) {
-        sample_gif_animat.file = DGifOpenFileName(gif_filepath, &error);
-        if (error) {
-            fprintf(stderr, "Could not read gif file: %s\n", gif_filepath);
-            exit(1);
-        }
-        assert(error == 0);
-        DGifSlurp(sample_gif_animat.file);
-    }
-
-    Image32 sample_png_image = {};
-    if (png_filepath) {
-        sample_png_image = load_image32_from_png(png_filepath);
     }
 
     Bttv bttv = { };
