@@ -356,7 +356,7 @@ int main(int argc, char *argv[])
     }
 
     // TODO(#44): BTTV mapping is not auto populated from the BTTV API
-    // TODO: FFZ mapping is not auto populated from the FFZ API
+    // TODO(#45): FFZ mapping is not auto populated from the FFZ API
     Emote_Cache emote_cache = { };
     auto mapping_csv = file_as_string_view("./mapping.csv");
     while (mapping_csv.count > 0) {
