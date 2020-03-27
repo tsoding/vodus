@@ -13,7 +13,7 @@ changed at any moment or stop working at all.**
 ```console
 $ # Install Dependencies
 $ ## Debian
-$ sudo apt-get install libfreetype6-dev libgif-dev libpng-dev libavutil-dev libavcodec-dev
+$ sudo apt-get install libfreetype6-dev libgif-dev libpng-dev libavutil-dev libavcodec-dev libcurl4-openssl-dev
 $ ## NixOS
 $ nix-shell
 $ ## (add your distro here)
