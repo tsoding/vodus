@@ -17,6 +17,12 @@ extern "C" {
 #include <libavutil/imgutils.h>
 }
 
+#include <curl/curl.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 const size_t VODUS_FPS = 30;
 const float VODUS_DELTA_TIME_SEC = 1.0f / VODUS_FPS;
 const size_t VODUS_WIDTH = 1028;
@@ -37,8 +43,10 @@ struct Defer
 #define defer(body) Defer CONCAT(defer, __LINE__)([&]() { body; })
 
 // PLEASE READ THIS --> https://en.wikipedia.org/wiki/Single_Compilation_Unit
+#include "./vodus_file.cpp"
 #include "./vodus_print.cpp"
 #include "./vodus_string.cpp"
 #include "./vodus_image32.cpp"
 #include "./vodus_emotes.cpp"
+#include "./vodus_curl.cpp"
 #include "./vodus_main.cpp"

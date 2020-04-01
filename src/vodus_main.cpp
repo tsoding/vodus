@@ -256,7 +256,92 @@ void usage(FILE *stream)
     println(stream, "    --limit <number>          Limit the amout of messages to render");
 }
 
-int main(int argc, char *argv[])
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+
+
+
+using namespace rapidjson;
+
+void append_bttv_mapping(CURL *curl, const char *emotes_url, FILE *mapping)
+{
+    buffer.clean();
+
+    println(stdout, "---------- ", emotes_url, " ----------");
+
+    auto res = curl_perform_to_string_buffer(curl, emotes_url, &buffer);
+    if (res != CURLE_OK) {
+        println(stderr, "curl_perform_to_string_buffer() failed: ",
+                curl_easy_strerror(res));
+        abort();
+    }
+
+    Document bttv_emotes;
+    bttv_emotes.Parse(buffer.data); // TODO: how to handle parse fail
+    assert(bttv_emotes.IsObject());
+    assert(bttv_emotes["emotes"].IsArray());
+
+    const size_t BUFFER_SIZE = 256;
+    char path_buffer[BUFFER_SIZE] = {};
+    char url_buffer[BUFFER_SIZE] = {};
+    for (auto &emote_object : bttv_emotes["emotes"].GetArray()) {
+        assert(emote_object.IsObject());
+        const auto &emote = emote_object.GetObject();
+        assert(emote["id"].IsString());
+        assert(emote["code"].IsString());
+        assert(emote["imageType"].IsString());
+
+        snprintf(path_buffer, BUFFER_SIZE, "emotes/%s.%s",
+                 emote["id"].GetString(),
+                 emote["imageType"].GetString());
+        snprintf(url_buffer, BUFFER_SIZE,
+                 "https://cdn.betterttv.net/emote/%s/3x",
+                 emote["id"].GetString());
+        println(stdout, "Downloading ", url_buffer, " to ", path_buffer);
+
+        res = curl_download_file_to(curl, url_buffer, path_buffer);
+        if (res != CURLE_OK) {
+            println(stderr, "curl_download_file_to() failed: ", curl_easy_strerror(res));
+            abort();
+        }
+
+        fprintf(mapping, "%s,%s\n",
+                emote["code"].GetString(),
+                path_buffer);
+    }
+}
+
+int main(void)
+{
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    defer(curl_global_cleanup());
+
+    CURL *curl = curl_easy_init();
+    if (!curl) {
+        println(stderr, "CURL pooped itself: could not initialize the state");
+        abort();
+    }
+    defer(curl_easy_cleanup(curl));
+
+    const char *EMOTE_CACHE_DIRECTORY = "./emotes/";
+    const char *MAPPING_FILE = "./mapping.csv";
+
+    FILE *mapping = fopen(MAPPING_FILE, "w");
+    if (mapping == NULL) {
+        println(stderr, "Could not open file ", MAPPING_FILE);
+    }
+    defer(fclose(mapping));
+
+    create_directory_if_not_exists(EMOTE_CACHE_DIRECTORY);
+
+    append_bttv_mapping(curl, "https://api.betterttv.net/2/emotes", mapping);
+    append_bttv_mapping(curl, "https://api.betterttv.net/2/channels/tsoding", mapping);
+
+    return 0;
+}
+
+int main_vodus(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
     const char *face_filepath = nullptr;
@@ -320,7 +405,6 @@ int main(int argc, char *argv[])
         usage(stderr);
         exit(1);
     }
-
 
     FT_Library library;
     auto error = FT_Init_FreeType(&library);

@@ -1,4 +1,4 @@
-PKGS=freetype2 libpng libavcodec libavutil libcurl
+PKGS=freetype2 libpng libavcodec libavutil libcurl RapidJSON
 CXXFLAGS=-Wall -O3 -fno-exceptions -std=c++17 -ggdb $(shell pkg-config --cflags $(PKGS))
 LIBS=$(shell pkg-config --libs $(PKGS)) -lgif -lpthread
 
@@ -12,4 +12,4 @@ vodus: $(wildcard src/vodus*.cpp)
 render: output.mpeg
 
 output.mpeg: vodus
-	./vodus --font assets/ComicNeue_Bold.otf --output output.mpeg sample.txt
+	./vodus --font assets/ComicNeue_Bold.otf --output output.mpeg --limit 20 569086201.txt
