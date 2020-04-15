@@ -14,6 +14,11 @@ struct String_Buffer
         return size;
     }
 
+    size_t write(const char *cstr)
+    {
+        return write(cstr, strlen(cstr));
+    }
+
     void clean()
     {
         memset(this->data, 0, Capacity + 1);
@@ -21,7 +26,11 @@ struct String_Buffer
     }
 };
 
-String_Buffer buffer = {};
+template <size_t Capacity>
+void print1(FILE *stream, String_Buffer<Capacity> buffer)
+{
+    fwrite(buffer.data, 1, buffer.size, stream);
+}
 
 size_t curl_string_buffer_write_callback(char *ptr,
                                          size_t size,

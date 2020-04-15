@@ -256,60 +256,94 @@ void usage(FILE *stream)
     println(stream, "    --limit <number>          Limit the amout of messages to render");
 }
 
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
+#include "tzozen.h"
 
+const size_t JSON_MEMORY_BUFFER_CAPACITY = 10 * MEGA;
+static uint8_t json_memory_buffer[JSON_MEMORY_BUFFER_CAPACITY];
+String_Buffer curl_buffer = {};
 
-
-using namespace rapidjson;
+static inline
+void expect_json_type(Json_Value value, Json_Type type)
+{
+    if (value.type != type) {
+        fprintf(stderr,
+                "Expected %s, but got %s\n",
+                json_type_as_cstr(type),
+                json_type_as_cstr(value.type));
+        abort();
+    }
+}
 
 void append_bttv_mapping(CURL *curl, const char *emotes_url, FILE *mapping)
 {
-    buffer.clean();
+    curl_buffer.clean();
 
     println(stdout, "---------- ", emotes_url, " ----------");
 
-    auto res = curl_perform_to_string_buffer(curl, emotes_url, &buffer);
+    auto res = curl_perform_to_string_buffer(curl, emotes_url, &curl_buffer);
     if (res != CURLE_OK) {
         println(stderr, "curl_perform_to_string_buffer() failed: ",
                 curl_easy_strerror(res));
         abort();
     }
 
-    Document bttv_emotes;
-    bttv_emotes.Parse(buffer.data); // TODO: how to handle parse fail
-    assert(bttv_emotes.IsObject());
-    assert(bttv_emotes["emotes"].IsArray());
+    Memory memory = {
+        .capacity = JSON_MEMORY_BUFFER_CAPACITY,
+        .buffer = json_memory_buffer
+    };
 
-    const size_t BUFFER_SIZE = 256;
-    char path_buffer[BUFFER_SIZE] = {};
-    char url_buffer[BUFFER_SIZE] = {};
-    for (auto &emote_object : bttv_emotes["emotes"].GetArray()) {
-        assert(emote_object.IsObject());
-        const auto &emote = emote_object.GetObject();
-        assert(emote["id"].IsString());
-        assert(emote["code"].IsString());
-        assert(emote["imageType"].IsString());
+    String source = {
+        .len = curl_buffer.size,
+        .data = curl_buffer.data
+    };
 
-        snprintf(path_buffer, BUFFER_SIZE, "emotes/%s.%s",
-                 emote["id"].GetString(),
-                 emote["imageType"].GetString());
-        snprintf(url_buffer, BUFFER_SIZE,
-                 "https://cdn.betterttv.net/emote/%s/3x",
-                 emote["id"].GetString());
+    Json_Result result = parse_json_value(&memory, source);
+    if (result.is_error) {
+        print_json_error(stdout, result, source, emotes_url);
+        abort();
+    }
+
+    expect_json_type(result.value, JSON_OBJECT);
+    auto emotes = json_object_value_by_key(result.value.object, SLT("emotes"));
+    expect_json_type(emotes, JSON_ARRAY);
+
+    FOR_ARRAY_JSON(emote, emotes.array, {
+        expect_json_type(emote, JSON_OBJECT);
+
+        auto emote_id = json_object_value_by_key(emote.object, SLT("id"));
+        expect_json_type(emote_id, JSON_STRING);
+
+        auto emote_code = json_object_value_by_key(emote.object, SLT("code"));
+        expect_json_type(emote_code, JSON_STRING);
+
+        auto emote_imageType = json_object_value_by_key(emote.object, SLT("imageType"));
+        expect_json_type(emote_imageType, JSON_STRING);
+
+        const size_t BUFFER_SIZE = 256;
+        String_Buffer<BUFFER_SIZE> path_buffer = {};
+        String_Buffer<BUFFER_SIZE> url_buffer = {};
+
+        path_buffer.write("emotes/"); // TODO: check for path_buffer.write return 09
+        path_buffer.write(emote_id.string.data, emote_id.string.len);
+        path_buffer.write(".");
+        path_buffer.write(emote_imageType.string.data, emote_imageType.string.len);
+
+        url_buffer.write("https://cdn.betterttv.net/emote/");
+        url_buffer.write(emote_id.string.data, emote_id.string.len);
+        url_buffer.write("/3x");
         println(stdout, "Downloading ", url_buffer, " to ", path_buffer);
 
-        res = curl_download_file_to(curl, url_buffer, path_buffer);
+        res = curl_download_file_to(curl, url_buffer.data, path_buffer.data);
         if (res != CURLE_OK) {
             println(stderr, "curl_download_file_to() failed: ", curl_easy_strerror(res));
             abort();
         }
 
-        fprintf(mapping, "%s,%s\n",
-                emote["code"].GetString(),
-                path_buffer);
-    }
+        fwrite(emote_code.string.data, 1, emote_code.string.len, mapping);
+        fputc(',', mapping);
+        fwrite(path_buffer.data, 1, path_buffer.size, mapping);
+        fputc('\n', mapping);
+    });
 }
 
 int main(void)
@@ -341,7 +375,7 @@ int main(void)
     return 0;
 }
 
-int main_vodus(int argc, char *argv[])
+int main_(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
     const char *face_filepath = nullptr;
