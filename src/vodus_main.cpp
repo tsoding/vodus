@@ -274,11 +274,103 @@ void expect_json_type(Json_Value value, Json_Type type)
     }
 }
 
-void append_bttv_mapping(CURL *curl, const char *emotes_url, FILE *mapping)
+const size_t PATH_BUFFER_SIZE = 256;
+
+struct Curl_Download
+{
+    String_Buffer<PATH_BUFFER_SIZE> src_url;
+    String_Buffer<PATH_BUFFER_SIZE> dst_path;
+};
+
+const size_t CURL_DOWNLOAD_QUEUE_CAP = 256;
+struct Curl_Download_Queue
+{
+    Curl_Download downloads[CURL_DOWNLOAD_QUEUE_CAP];
+    size_t begin;
+    size_t size;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond_full;
+    pthread_cond_t cond_empty;
+    int is_done = 0;
+
+    void done()
+    {
+        pthread_mutex_lock(&mutex);
+        is_done = 1;
+        pthread_mutex_unlock(&mutex);
+    }
+
+    void push(Curl_Download download)
+    {
+        pthread_mutex_lock(&mutex);
+        while (size >= CURL_DOWNLOAD_QUEUE_CAP) {
+            pthread_cond_wait(&cond_full, &mutex);
+        }
+
+        downloads[(begin + size) % CURL_DOWNLOAD_QUEUE_CAP] = download;
+        size += 1;
+
+        pthread_cond_signal(&cond_empty);
+        pthread_mutex_unlock(&mutex);
+    }
+
+    int pop(Curl_Download *download)
+    {
+        pthread_mutex_lock(&mutex);
+
+        while (size == 0) {
+            if (is_done) {
+                pthread_cond_signal(&cond_empty);
+                pthread_mutex_unlock(&mutex);
+                return 0;
+            }
+
+            pthread_cond_wait(&cond_empty, &mutex);
+        }
+
+        *download = downloads[begin];
+        begin = (begin + 1) % CURL_DOWNLOAD_QUEUE_CAP;
+        size -= 1;
+
+        pthread_cond_signal(&cond_full);
+        pthread_mutex_unlock(&mutex);
+
+        return 1;
+    }
+
+    void error(const char *message)
+    {
+        assert(0 && "TODO: Curl_Download_Queue::error() is not implemented");
+    }
+};
+
+void *curl_download_all_from_queue(void *arg)
+{
+    Curl_Download_Queue *queue = (Curl_Download_Queue *) arg;
+    CURL *curl = curl_easy_init();
+    if (!curl) {
+        println(stderr, "CURL pooped itself: could not initialize the state");
+        abort();
+    }
+    defer(curl_easy_cleanup(curl));
+
+    Curl_Download download = {};
+    while (queue->pop(&download)) {
+        auto res = curl_download_file_to(curl, download.src_url.data, download.dst_path.data);
+        if (res != CURLE_OK) {
+            queue->error(curl_easy_strerror(res));
+            return NULL;
+        }
+
+        println(stdout, "Downloading ", download.src_url, " to ", download.dst_path);
+    }
+
+    return queue;
+}
+
+void append_bttv_mapping(CURL *curl, const char *emotes_url, Curl_Download_Queue *queue)
 {
     curl_buffer.clean();
-
-    println(stdout, "---------- ", emotes_url, " ----------");
 
     auto res = curl_perform_to_string_buffer(curl, emotes_url, &curl_buffer);
     if (res != CURLE_OK) {
@@ -319,9 +411,8 @@ void append_bttv_mapping(CURL *curl, const char *emotes_url, FILE *mapping)
         auto emote_imageType = json_object_value_by_key(emote.object, SLT("imageType"));
         expect_json_type(emote_imageType, JSON_STRING);
 
-        const size_t BUFFER_SIZE = 256;
-        String_Buffer<BUFFER_SIZE> path_buffer = {};
-        String_Buffer<BUFFER_SIZE> url_buffer = {};
+        String_Buffer<PATH_BUFFER_SIZE> path_buffer = {};
+        String_Buffer<PATH_BUFFER_SIZE> url_buffer = {};
 
         path_buffer.write("emotes/"); // TODO: check for path_buffer.write return 09
         path_buffer.write(emote_id.string.data, emote_id.string.len);
@@ -331,20 +422,16 @@ void append_bttv_mapping(CURL *curl, const char *emotes_url, FILE *mapping)
         url_buffer.write("https://cdn.betterttv.net/emote/");
         url_buffer.write(emote_id.string.data, emote_id.string.len);
         url_buffer.write("/3x");
-        println(stdout, "Downloading ", url_buffer, " to ", path_buffer);
 
-        res = curl_download_file_to(curl, url_buffer.data, path_buffer.data);
-        if (res != CURLE_OK) {
-            println(stderr, "curl_download_file_to() failed: ", curl_easy_strerror(res));
-            abort();
-        }
-
-        fwrite(emote_code.string.data, 1, emote_code.string.len, mapping);
-        fputc(',', mapping);
-        fwrite(path_buffer.data, 1, path_buffer.size, mapping);
-        fputc('\n', mapping);
+        queue->push(Curl_Download { url_buffer, path_buffer });
+        // TODO: mapping file is not created anymore
     });
 }
+
+Curl_Download_Queue curl_download_queue;
+
+const size_t THREAD_COUNT = 20;
+pthread_t download_threads[THREAD_COUNT];
 
 int main(void)
 {
@@ -369,8 +456,30 @@ int main(void)
 
     create_directory_if_not_exists(EMOTE_CACHE_DIRECTORY);
 
-    append_bttv_mapping(curl, "https://api.betterttv.net/2/emotes", mapping);
-    append_bttv_mapping(curl, "https://api.betterttv.net/2/channels/tsoding", mapping);
+    for (size_t i = 0; i < THREAD_COUNT; ++i) {
+        int err = pthread_create(&download_threads[i], NULL,
+                                 curl_download_all_from_queue,
+                                 &curl_download_queue);
+        if (err != 0) {
+            println(stderr, "Could not create thread: ", strerror(err));
+            abort();
+        }
+    }
+
+    append_bttv_mapping(curl, "https://api.betterttv.net/2/emotes", &curl_download_queue);
+    append_bttv_mapping(curl, "https://api.betterttv.net/2/channels/tsoding", &curl_download_queue);
+    curl_download_queue.done();
+
+    for (size_t i = 0; i < THREAD_COUNT; ++i) {
+        void *retval = 0;
+        int err = pthread_join(download_threads[i], &retval);
+        if (err != 0) {
+            println(stderr, "Could not join a thread: ", strerror(err));
+            // NOTE: just skip the thread and try to join the rest of them
+        }
+    }
+
+    // TODO: handle any errors that might've happened during the download in any of the threads
 
     return 0;
 }
