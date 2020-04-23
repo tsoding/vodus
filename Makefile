@@ -8,6 +8,9 @@ all: vodus Makefile
 vodus: $(wildcard src/vodus*.cpp)
 	$(CXX) $(CXXFLAGS) -o vodus src/vodus.cpp $(LIBS)
 
+curl_multi_probe: curl_multi_probe.c
+	$(CC) -Wall -o curl_multi_probe curl_multi_probe.c $(LIBS)
+
 .PHONY: render
 render: output.mpeg
 
