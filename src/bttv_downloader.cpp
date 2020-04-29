@@ -11,6 +11,24 @@
 #include "./tzozen.h"
 #include "./core.cpp"
 
+template <typename T>
+T min(T a, T b)
+{
+    return a < b ? a : b;
+}
+
+template <typename T, size_t Capacity>
+struct Fixed_Array
+{
+    size_t size;
+    T elements[Capacity];
+
+    void push(T x)
+    {
+        elements[size++] = x;
+    }
+};
+
 const size_t DEFAULT_STRING_BUFFER_CAPACITY = 20 * 1024;
 
 template <size_t Capacity = DEFAULT_STRING_BUFFER_CAPACITY>
@@ -96,72 +114,40 @@ void expect_json_type(Json_Value value, Json_Type type)
 }
 
 const size_t PATH_BUFFER_SIZE = 256;
-const long MAX_PARALLEL = 100;
+const size_t MAX_PARALLEL = 20;
 
-struct Curl_Multi_Downloader
+struct Curl_Download
 {
-    CURLM *cm;
-    size_t transfers;
+    String_Buffer<PATH_BUFFER_SIZE> url;
+    String_Buffer<PATH_BUFFER_SIZE> file;
 
-    void finish_transfer(CURL *ch)
-    {
-        char *url = NULL;
-        curl_easy_getinfo(ch, CURLINFO_EFFECTIVE_URL, &url);
-        fprintf(stdout, "%s is DONE\n", url);
-
-        FILE *file = NULL;
-        curl_easy_getinfo(ch, CURLINFO_PRIVATE, &file);
-        fclose(file);
-
-        curl_multi_remove_handle(cm, ch);
-        curl_easy_cleanup(ch);
-
-        transfers -= 1;
-    }
-
-    void add_transfer(CURL *ch)
-    {
-        int still_alive = 1;
-        while (still_alive || (transfers >= MAX_PARALLEL)) {
-            curl_multi_perform(cm, &still_alive);
-            CURLMsg *msg;
-            int msgs_left = -1;
-            while((msg = curl_multi_info_read(cm, &msgs_left))) {
-                if (msg->msg == CURLMSG_DONE) {
-                    finish_transfer(msg->easy_handle);
-                } else {
-                    fprintf(stderr, "E: CURLMsg (%d)\n", msg->msg);
-                }
-
-                if (still_alive) curl_multi_wait(cm, NULL, 0, 1000, NULL);
-            }
-        }
-
-        transfers += 1;
-        curl_multi_add_handle(cm, ch);
-    }
-
-    void join()
-    {
-        int still_alive = 1;
-        do {
-            curl_multi_perform(cm, &still_alive);
-            CURLMsg *msg;
-            int msgs_left = -1;
-            while((msg = curl_multi_info_read(cm, &msgs_left))) {
-                if (msg->msg == CURLMSG_DONE) {
-                    finish_transfer(msg->easy_handle);
-                } else {
-                    fprintf(stderr, "E: CURLMsg (%d)\n", msg->msg);
-                }
-
-                if (still_alive) curl_multi_wait(cm, NULL, 0, 1000, NULL);
-            }
-        } while (still_alive || (transfers >= MAX_PARALLEL));
-    }
 };
 
-void append_bttv_mapping(CURL *curl, const char *emotes_url, Curl_Multi_Downloader *cmd)
+void add_download_to_multi_handle(Curl_Download download, CURLM *cm)
+{
+    FILE *file = fopen(download.file.data, "wb");
+    CURL *eh = curl_easy_init();
+    curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, fwrite);
+    curl_easy_setopt(eh, CURLOPT_WRITEDATA, file);
+    curl_easy_setopt(eh, CURLOPT_URL, download.url.data);
+    curl_easy_setopt(eh, CURLOPT_PRIVATE, file);
+    curl_multi_add_handle(cm, eh);
+}
+
+void print1(FILE *stream, Curl_Download download)
+{
+    print(stream, "Curl_Download { .url = \"", download.url, "\", .file = \"", download.file, "\" }");
+}
+
+void print1(FILE *stream, String tzozen_string)
+{
+    fwrite(tzozen_string.data, 1, tzozen_string.len, stream);
+}
+
+void append_bttv_mapping(CURL *curl,
+                         const char *emotes_url,
+                         FILE *mapping,
+                         Fixed_Array<Curl_Download, 1024> *bttv_urls)
 {
     curl_buffer.clean();
 
@@ -204,30 +190,19 @@ void append_bttv_mapping(CURL *curl, const char *emotes_url, Curl_Multi_Download
         auto emote_imageType = json_object_value_by_key(emote.object, SLT("imageType"));
         expect_json_type(emote_imageType, JSON_STRING);
 
-        String_Buffer<PATH_BUFFER_SIZE> path_buffer = {};
-        String_Buffer<PATH_BUFFER_SIZE> url_buffer = {};
+        Curl_Download download = {};
 
-        path_buffer.write("emotes/"); // TODO: check for path_buffer.write return 09
-        path_buffer.write(emote_id.string.data, emote_id.string.len);
-        path_buffer.write(".");
-        path_buffer.write(emote_imageType.string.data, emote_imageType.string.len);
+        download.file.write("emotes/"); // TODO: check for download.path.write return 09
+        download.file.write(emote_id.string.data, emote_id.string.len);
+        download.file.write(".");
+        download.file.write(emote_imageType.string.data, emote_imageType.string.len);
 
-        url_buffer.write("https://cdn.betterttv.net/emote/");
-        url_buffer.write(emote_id.string.data, emote_id.string.len);
-        url_buffer.write("/3x");
+        download.url.write("https://cdn.betterttv.net/emote/");
+        download.url.write(emote_id.string.data, emote_id.string.len);
+        download.url.write("/3x");
 
-        FILE *file = fopen(path_buffer.data, "wb");
-        if (file == NULL) {
-            println(stderr, "Could not open `", path_buffer, "`: ", strerror(errno));
-            abort();
-        }
-
-        CURL *ch = curl_easy_init();
-        curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, fwrite);
-        curl_easy_setopt(ch, CURLOPT_URL, url_buffer.data);
-        curl_easy_setopt(ch, CURLOPT_WRITEDATA, file);
-        curl_easy_setopt(ch, CURLOPT_PRIVATE, file);
-        cmd->add_transfer(ch);
+        println(mapping, emote_code.string, ",", download.file);
+        bttv_urls->push(download);
     });
 }
 
@@ -253,6 +228,8 @@ int create_directory_if_not_exists(const char *dirpath)
     return 0;
 }
 
+Fixed_Array<Curl_Download, 1024> downloads;
+
 int main(void)
 {
     curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -276,14 +253,50 @@ int main(void)
 
     create_directory_if_not_exists(EMOTE_CACHE_DIRECTORY);
 
-    Curl_Multi_Downloader cmd = {};
-    cmd.cm = curl_multi_init();
+    CURLM *cm = curl_multi_init();
+    defer(curl_multi_cleanup(cm));
 
-    curl_multi_setopt(cmd.cm, CURLMOPT_MAXCONNECTS, MAX_PARALLEL);
+    curl_multi_setopt(cm, CURLMOPT_MAXCONNECTS, MAX_PARALLEL);
 
-    append_bttv_mapping(curl, "https://api.betterttv.net/2/emotes", &cmd);
-    append_bttv_mapping(curl, "https://api.betterttv.net/2/channels/tsoding", &cmd);
-    cmd.join();
+    append_bttv_mapping(curl, "https://api.betterttv.net/2/emotes", mapping, &downloads);
+    append_bttv_mapping(curl, "https://api.betterttv.net/2/channels/tsoding", mapping, &downloads);
+
+    size_t transfers = 0;
+    for (transfers = 0; transfers < min(downloads.size, MAX_PARALLEL); ++transfers) {
+        add_download_to_multi_handle(downloads.elements[transfers], cm);
+    }
+
+    int still_alive = 1;
+    do {
+        curl_multi_perform(cm, &still_alive);
+
+        CURLMsg *msg;
+        int msgs_left = -1;
+        while((msg = curl_multi_info_read(cm, &msgs_left))) {
+            if (msg->msg == CURLMSG_DONE) {
+                FILE *file = NULL;
+                curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &file);
+                fclose(file);
+
+                char *url = NULL;
+                curl_easy_getinfo(msg->easy_handle, CURLINFO_EFFECTIVE_URL, &url);
+                fprintf(stderr, "R: %d - %s <%s>\n",
+                        msg->data.result, curl_easy_strerror(msg->data.result), url);
+
+                CURL *e = msg->easy_handle;
+                curl_multi_remove_handle(cm, e);
+                curl_easy_cleanup(e);
+            } else {
+                fprintf(stderr, "E: CURLMsg (%d)\n", msg->msg);
+            }
+
+            if (transfers < downloads.size) {
+                add_download_to_multi_handle(downloads.elements[transfers++], cm);
+            }
+
+            if(still_alive) curl_multi_wait(cm, NULL, 0, 1000, NULL);
+        }
+    } while (still_alive || (transfers < downloads.size));
 
     return 0;
 }
