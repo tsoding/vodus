@@ -3,10 +3,13 @@ CXXFLAGS=-Wall -O3 -fno-exceptions -std=c++17 -ggdb $(shell pkg-config --cflags 
 LIBS=$(shell pkg-config --libs $(PKGS)) -lgif -lpthread
 
 .PHONY: all
-all: vodus Makefile
+all: vodus bttv_downloader curl_multi_probe Makefile
 
-vodus: $(wildcard src/vodus*.cpp)
+vodus: $(wildcard src/vodus*.cpp) $(wildcard src/core*.cpp)
 	$(CXX) $(CXXFLAGS) -o vodus src/vodus.cpp $(LIBS)
+
+bttv_downloader: src/bttv_downloader.cpp $(wildcard src/core*.cpp)
+	$(CXX) $(CXXFLAGS) -o bttv_downloader src/bttv_downloader.cpp $(LIBS)
 
 curl_multi_probe: curl_multi_probe.c
 	$(CC) -Wall -o curl_multi_probe curl_multi_probe.c $(LIBS)
