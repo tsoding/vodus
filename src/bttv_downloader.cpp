@@ -293,9 +293,9 @@ int main(void)
             if (transfers < downloads.size) {
                 add_download_to_multi_handle(downloads.elements[transfers++], cm);
             }
-
-            if(still_alive) curl_multi_wait(cm, NULL, 0, 1000, NULL);
         }
+
+        if(still_alive) curl_multi_wait(cm, NULL, 0, 1000, NULL);
     } while (still_alive || (transfers < downloads.size));
 
     return 0;
