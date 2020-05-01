@@ -1,8 +1,8 @@
 vodus
 bttv_downloader
-curl_multi_probe
 *.ppm
 *.mp4
 *.mpeg
 emotes/
 TAGS
+mapping.csv
