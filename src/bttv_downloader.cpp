@@ -158,14 +158,13 @@ void append_bttv_mapping(CURL *curl,
         abort();
     }
 
-    Memory memory = {
-        .capacity = JSON_MEMORY_BUFFER_CAPACITY,
-        .buffer = json_memory_buffer
-    };
+    Memory memory = {};
+    memory.capacity = JSON_MEMORY_BUFFER_CAPACITY;
+    memory.buffer = json_memory_buffer;
 
     String source = {
-        .len = curl_buffer.size,
-        .data = curl_buffer.data
+        curl_buffer.size,
+        curl_buffer.data
     };
 
     Json_Result result = parse_json_value(&memory, source);
