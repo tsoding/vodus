@@ -7,9 +7,9 @@
 #include <string.h>
 #include <ctype.h>
 
-#define KILO 1024
-#define MEGA (1024 * KILO)
-#define GIGA (1024 * MEGA)
+#define KILO 1024LL
+#define MEGA (1024LL * KILO)
+#define GIGA (1024LL * MEGA)
 
 // TODO: consider getting rid of designated initializers to be more compatible with C++
 // TODO: https://github.com/nothings/stb/blob/master/docs/stb_howto.txt
@@ -243,22 +243,20 @@ const char *json_type_as_cstr(Json_Type type)
 
 typedef struct Json_Value Json_Value;
 
-#define JSON_ARRAY_PAGE_CAPACITY 128
-
-typedef struct Json_Array_Page Json_Array_Page;
+typedef struct Json_Array_Elem Json_Array_Elem;
 
 typedef struct {
-    Json_Array_Page *begin;
-    Json_Array_Page *end;
+    Json_Array_Elem *begin;
+    Json_Array_Elem *end;
 } Json_Array;
 
 void json_array_push(Memory *memory, Json_Array *array, Json_Value value);
 
-typedef struct Json_Object_Page Json_Object_Page;
+typedef struct Json_Object_Elem Json_Object_Elem;
 
 typedef struct {
-    Json_Object_Page *begin;
-    Json_Object_Page *end;
+    Json_Object_Elem *begin;
+    Json_Object_Elem *end;
 } Json_Object;
 
 typedef struct {
@@ -284,22 +282,21 @@ struct Json_Value {
     };
 };
 
-struct Json_Array_Page {
-    Json_Array_Page *next;
-    size_t size;
-    Json_Value elements[JSON_ARRAY_PAGE_CAPACITY];
+struct Json_Array_Elem {
+    Json_Array_Elem *next;
+    Json_Value value;
 };
+
+#define FOR_JSON(container_type, elem, container)                       \
+    for (container_type##_Elem *elem = (container).begin;               \
+         elem != NULL;                                                  \
+         elem = elem->next)
 
 static inline
 size_t json_array_size(Json_Array array)
 {
     size_t size = 0;
-    for (Json_Array_Page *page = array.begin;
-         page != NULL;
-         page = page->next)
-    {
-        size += page->size;
-    }
+    FOR_JSON (Json_Array, elem, array) size += 1;
     return size;
 }
 
@@ -310,12 +307,9 @@ typedef struct {
     const char *message;
 } Json_Result;
 
-typedef struct {
-    String key;
-    Json_Value value;
-} Json_Object_Member;
-
+#ifndef JSON_OBJECT_PAGE_CAPACITY
 #define JSON_OBJECT_PAGE_CAPACITY 128
+#endif
 
 extern Json_Value json_null;
 extern Json_Value json_true;
@@ -323,11 +317,19 @@ extern Json_Value json_false;
 
 Json_Value json_string(String string);
 
-struct Json_Object_Page {
-    Json_Object_Page *next;
-    size_t size;
-    Json_Object_Member elements[JSON_OBJECT_PAGE_CAPACITY];
+struct Json_Object_Elem {
+    Json_Object_Elem *next;
+    String key;
+    Json_Value value;
 };
+
+static inline
+size_t json_object_size(Json_Object object)
+{
+    size_t size = 0;
+    FOR_JSON (Json_Object, elem, object) size += 1;
+    return size;
+}
 
 void json_object_push(Memory *memory, Json_Object *object, String key, Json_Value value);
 
@@ -369,52 +371,37 @@ String json_trim_begin(String s)
 
 void json_array_push(Memory *memory, Json_Array *array, Json_Value value)
 {
-    assert(memory);
-    assert(array);
+    Json_Array_Elem *next = (Json_Array_Elem *) memory_alloc(memory, sizeof(Json_Array_Elem));
+    memset(next, 0, sizeof(Json_Array_Elem));
+    next->value = value;
 
     if (array->begin == NULL) {
         assert(array->end == NULL);
-        array->begin = (Json_Array_Page *) memory_alloc(memory, sizeof(Json_Array_Page));
-        array->end = array->begin;
-        memset(array->begin, 0, sizeof(Json_Array_Page));
-    }
-
-    if (array->end->size >= JSON_ARRAY_PAGE_CAPACITY) {
-        Json_Array_Page *next = (Json_Array_Page *) memory_alloc(memory, sizeof(Json_Array_Page));
-        memset(next, 0, sizeof(Json_Array_Page));
+        array->begin = next;
+    } else {
+        assert(array->end != NULL);
         array->end->next = next;
-        array->end = next;
     }
 
-    assert(array->end->size < JSON_ARRAY_PAGE_CAPACITY);
-
-    array->end->elements[array->end->size++] = value;
+    array->end = next;
 }
 
 void json_object_push(Memory *memory, Json_Object *object, String key, Json_Value value)
 {
-    assert(memory);
-    assert(object);
+    Json_Object_Elem *next = (Json_Object_Elem *) memory_alloc(memory, sizeof(Json_Object_Elem));
+    memset(next, 0, sizeof(Json_Object_Elem));
+    next->key = key;
+    next->value = value;
 
     if (object->begin == NULL) {
         assert(object->end == NULL);
-        object->begin = (Json_Object_Page *) memory_alloc(memory, sizeof(Json_Object_Page));
-        object->end = object->begin;
-        memset(object->begin, 0, sizeof(Json_Object_Page));
-    }
-
-    if (object->end->size >= JSON_OBJECT_PAGE_CAPACITY) {
-        Json_Object_Page *next = (Json_Object_Page *) memory_alloc(memory, sizeof(Json_Object_Page));
-        memset(next, 0, sizeof(Json_Object_Page));
+        object->begin = next;
+    } else {
+        assert(object->end != NULL);
         object->end->next = next;
-        object->end = next;
     }
 
-    assert(object->end->size < JSON_OBJECT_PAGE_CAPACITY);
-
-    object->end->elements[object->end->size].key = key;
-    object->end->elements[object->end->size].value = value;
-    object->end->size += 1;
+    object->end = next;
 }
 
 int64_t stoi64(String integer)
@@ -488,7 +475,20 @@ static Json_Result parse_token(String source, String token,
     };
 }
 
-static Json_Result parse_json_number(String source)
+static String clone_string(Memory *memory, String string)
+{
+    char *clone_data = (char *)memory_alloc(memory, string.len);
+
+    String clone = {
+        .len = string.len,
+        .data = clone_data
+    };
+
+    memcpy(clone_data, string.data, string.len);
+    return clone;
+}
+
+static Json_Result parse_json_number(Memory *memory, String source)
 {
     String integer = {0};
     String fraction = {0};
@@ -566,9 +566,9 @@ static Json_Result parse_json_number(String source)
         .value = {
             .type = JSON_NUMBER,
             .number = {
-                .integer = integer,
-                .fraction = fraction,
-                .exponent = exponent
+                .integer = clone_string(memory, integer),
+                .fraction = clone_string(memory, fraction),
+                .exponent = clone_string(memory, exponent)
             }
         },
         .rest = source
@@ -1090,7 +1090,7 @@ Json_Result parse_json_value_impl(Memory *memory, String source, int level)
     case '{': return parse_json_object(memory, source, level);
     }
 
-    return parse_json_number(source);
+    return parse_json_number(memory, source);
 }
 
 Json_Result parse_json_value(Memory *memory, String source)
@@ -1179,15 +1179,13 @@ void print_json_array(FILE *stream, Json_Array array)
 {
     fprintf(stream, "[");
     int t = 0;
-    for (Json_Array_Page *page = array.begin; page != NULL; page = page->next) {
-        for (size_t i = 0; i < page->size; ++i) {
-            if (t) {
-                printf(",");
-            } else {
-                t = 1;
-            }
-            print_json_value(stream, page->elements[i]);
+    FOR_JSON (Json_Array, elem, array) {
+        if (t) {
+            fprintf(stream, ",");
+        } else {
+            t = 1;
         }
+        print_json_value(stream, elem->value);
     }
     fprintf(stream, "]");
 }
@@ -1196,17 +1194,15 @@ void print_json_object(FILE *stream, Json_Object object)
 {
     fprintf(stream, "{");
     int t = 0;
-    for (Json_Object_Page *page = object.begin; page != NULL; page = page->next) {
-        for (size_t i = 0; i < page->size; ++i) {
-            if (t) {
-                printf(",");
-            } else {
-                t = 1;
-            }
-            print_json_string(stream, page->elements[i].key);
-            fprintf(stream, ":");
-            print_json_value(stream, page->elements[i].value);
+    FOR_JSON (Json_Object, elem, object) {
+        if (t) {
+            fprintf(stream, ",");
+        } else {
+            t = 1;
         }
+        print_json_string(stream, elem->key);
+        fprintf(stream, ":");
+        print_json_value(stream, elem->value);
     }
     fprintf(stream, "}");
 }
@@ -1269,44 +1265,26 @@ void print_json_error(FILE *stream, Json_Result result,
     }
 }
 
-#define FOR_OBJECT_JSON(element, object, body)              \
-    for (Json_Object_Page *element##_page = (object).begin; \
-         element##_page != NULL;                            \
-         element##_page = element##_page->next)             \
-    {                                                       \
-        for (size_t element##_index = 0;                    \
-             element##_index < element##_page->size;        \
-             element##_index++)                             \
-        {                                                   \
-            Json_Object_Member element =                    \
-                element##_page->elements[element##_index];  \
-            body                                            \
-        }                                                   \
-    }
-
-#define FOR_ARRAY_JSON(element, object, body)               \
-    for (Json_Array_Page *element##_page = (object).begin;  \
-         element##_page != NULL;                            \
-         element##_page = element##_page->next)             \
-    {                                                       \
-        for (size_t element##_index = 0;                    \
-             element##_index < element##_page->size;        \
-             element##_index++)                             \
-        {                                                   \
-            Json_Value element =                            \
-                element##_page->elements[element##_index];  \
-            body                                            \
-        }                                                   \
-    }
-
 Json_Value json_object_value_by_key(Json_Object object, String key)
 {
-    FOR_OBJECT_JSON(element, object, {
-        if (string_equal(element.key, key)) {
-            return element.value;
+    FOR_JSON (Json_Object, element, object) {
+        if (string_equal(element->key, key)) {
+            return element->value;
         }
-    });
+    }
     return json_null;
+}
+
+Json_Value json_number(String integer, String fraction, String exponent)
+{
+    return (Json_Value) {
+        .type = JSON_NUMBER,
+        .number = {
+            .integer = integer,
+            .fraction = fraction,
+            .exponent = exponent,
+        },
+    };
 }
 
 #endif  // TZOZEN_H_

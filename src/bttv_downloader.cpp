@@ -178,16 +178,16 @@ void append_bttv_mapping(CURL *curl,
     auto emotes = json_object_value_by_key(result.value.object, SLT("emotes"));
     expect_json_type(emotes, JSON_ARRAY);
 
-    FOR_ARRAY_JSON(emote, emotes.array, {
-        expect_json_type(emote, JSON_OBJECT);
+    FOR_JSON (Json_Array, emote, emotes.array) {
+        expect_json_type(emote->value, JSON_OBJECT);
 
-        auto emote_id = json_object_value_by_key(emote.object, SLT("id"));
+        auto emote_id = json_object_value_by_key(emote->value.object, SLT("id"));
         expect_json_type(emote_id, JSON_STRING);
 
-        auto emote_code = json_object_value_by_key(emote.object, SLT("code"));
+        auto emote_code = json_object_value_by_key(emote->value.object, SLT("code"));
         expect_json_type(emote_code, JSON_STRING);
 
-        auto emote_imageType = json_object_value_by_key(emote.object, SLT("imageType"));
+        auto emote_imageType = json_object_value_by_key(emote->value.object, SLT("imageType"));
         expect_json_type(emote_imageType, JSON_STRING);
 
         Curl_Download download = {};
@@ -203,7 +203,7 @@ void append_bttv_mapping(CURL *curl,
 
         println(mapping, emote_code.string, ",", download.file);
         bttv_urls->push(download);
-    });
+    };
 }
 
 int create_directory_if_not_exists(const char *dirpath)
