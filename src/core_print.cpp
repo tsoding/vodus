@@ -8,6 +8,11 @@ void print1(FILE *stream, int x)
     fprintf(stream, "%d", x);
 }
 
+void print1(FILE *stream, long int x)
+{
+    fprintf(stream, "%ld", x);
+}
+
 void print1(FILE *stream, long unsigned int x)
 {
     fprintf(stream, "%lu", x);

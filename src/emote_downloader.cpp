@@ -106,9 +106,8 @@ static inline
 void expect_json_type(Json_Value value, Json_Type type)
 {
     if (value.type != type) {
-        fprintf(stderr,
-                "Expected %s, but got %s\n",
-                json_type_as_cstr(type),
+        println(stderr,
+                "Expected ", json_type_as_cstr(type), ", but got ",
                 json_type_as_cstr(value.type));
         abort();
     }
@@ -391,14 +390,15 @@ int main(void)
 
                 char *url = NULL;
                 curl_easy_getinfo(msg->easy_handle, CURLINFO_EFFECTIVE_URL, &url);
-                fprintf(stderr, "R: %d - %s <%s>\n",
-                        msg->data.result, curl_easy_strerror(msg->data.result), url);
+                println(stderr,
+                        "R: ", msg->data.result, " - ", curl_easy_strerror(msg->data.result),
+                        " <", url, ">");
 
                 CURL *e = msg->easy_handle;
                 curl_multi_remove_handle(cm, e);
                 curl_easy_cleanup(e);
             } else {
-                fprintf(stderr, "E: CURLMsg (%d)\n", msg->msg);
+                println(stderr, "E: CURLMsg (", msg->msg, ")");
             }
 
             if (transfers < downloads.size) {
