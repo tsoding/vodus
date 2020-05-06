@@ -138,6 +138,7 @@ bool render_log(Image32 surface, FT_Face face,
     int text_y = FONT_HEIGHT + CHAT_PADDING;
     for (size_t i = message_begin; i < message_end; ++i) {
         int text_x = 0;
+
         render_message(surface, face, messages[i], &text_x, &text_y, emote_cache);
         text_y += FONT_HEIGHT + CHAT_PADDING;
     }
@@ -159,6 +160,11 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Emote_Ca
     size_t message_end = 0;
     float message_cooldown = 0.0f;
     size_t frame_index = 0;
+    float t = 0.0f;
+
+    const size_t TRAILING_BUFFER_SEC = 2;
+    assert(messages_size > 0);
+    const float total_t = messages[messages_size - 1].timestamp + TRAILING_BUFFER_SEC;
     for (; message_end < messages_size; ++frame_index) {
         if (message_cooldown <= 0.0f) {
             message_end += 1;
@@ -178,9 +184,11 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Emote_Ca
         encode_frame(surface, frame_index);
 
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
+
+        t += VODUS_DELTA_TIME_SEC;
+        print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
     }
 
-    const size_t TRAILING_BUFFER_SEC = 2;
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * VODUS_FPS; ++i, ++frame_index) {
         while (render_log(surface, face, message_begin, message_end, emote_cache) &&
                message_begin < messages_size) {
@@ -188,7 +196,13 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Emote_Ca
         }
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
         encode_frame(surface, frame_index);
+
+        t += VODUS_DELTA_TIME_SEC;
+        print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
     }
+
+    print(stdout, "\rRendered ", (int) roundf(total_t), "/", (int) roundf(total_t), " seconds");
+    print(stdout, "\n");
 }
 
 void expect_char(String_View *input, char x)

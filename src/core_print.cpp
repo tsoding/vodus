@@ -1,3 +1,8 @@
+void print1(FILE *stream, float f)
+{
+    fprintf(stream, "%f", f);
+}
+
 void print1(FILE *stream, char c)
 {
     fputc(c, stream);
