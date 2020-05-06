@@ -1,6 +1,8 @@
 vodus
+bttv_downloader
 *.ppm
 *.mp4
 *.mpeg
-output/
+emotes/
 TAGS
+mapping.csv

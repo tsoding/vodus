@@ -321,7 +321,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-
     FT_Library library;
     auto error = FT_Init_FreeType(&library);
     if (error) {

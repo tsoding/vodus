@@ -100,7 +100,7 @@ void slap_savedimage_onto_image32(Image32 dest,
                                   int x, int y)
 {
     assert(SColorMap);
-    assert(SColorMap->BitsPerPixel == 8);
+    assert(SColorMap->BitsPerPixel <= 8);
     assert(!SColorMap->SortFlag);
     assert(src);
     assert(src->ImageDesc.Left == 0);
@@ -131,7 +131,7 @@ void slap_savedimage_onto_image32(Image32 dest,
                                   int target_width, int target_height)
 {
     assert(SColorMap);
-    assert(SColorMap->BitsPerPixel == 8);
+    assert(SColorMap->BitsPerPixel <= 8);
     assert(!SColorMap->SortFlag);
     assert(src);
     assert(src->ImageDesc.Left == 0);
