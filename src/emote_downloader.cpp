@@ -8,6 +8,7 @@
 #include <pthread.h>
 #define CURL_STRICTER
 #include <curl/curl.h>
+#define TZOZEN_IMPLEMENTATION
 #include "./tzozen.h"
 #include "./core.cpp"
 
@@ -144,6 +145,113 @@ void print1(FILE *stream, String tzozen_string)
     fwrite(tzozen_string.data, 1, tzozen_string.len, stream);
 }
 
+void append_ffz_set(CURL *curl,
+                    Json_Object set,
+                    FILE *mapping,
+                    Fixed_Array<Curl_Download, 1024> *downloads)
+{
+    auto emoticons = json_object_value_by_key(set, SLT("emoticons"));
+    expect_json_type(emoticons, JSON_ARRAY);
+
+    FOR_JSON(Json_Array, emoticon, emoticons.array) {
+        expect_json_type(emoticon->value, JSON_OBJECT);
+        auto urls = json_object_value_by_key(emoticon->value.object, SLT("urls"));
+        expect_json_type(urls, JSON_OBJECT);
+
+        if (urls.object.end) {
+            auto url = urls.object.end->value;
+            expect_json_type(url, JSON_STRING);
+            auto emote_id = json_object_value_by_key(emoticon->value.object, SLT("id"));
+            expect_json_type(emote_id, JSON_NUMBER);
+            auto name = json_object_value_by_key(emoticon->value.object, SLT("name"));
+            expect_json_type(name, JSON_STRING);
+
+            Curl_Download download = {};
+
+            download.file.write("emotes/"); // TODO: check for download.path.write return 0
+            download.file.write(emote_id.number.integer.data, emote_id.number.integer.len);
+            download.file.write(".png");
+            download.url.write("https:");
+            download.url.write(url.string.data, url.string.len);
+
+            println(mapping, name.string, ",", download.file);
+            downloads->push(download);
+        }
+    }
+}
+
+Json_Value curl_perform_to_json_value(CURL *curl, const char *url)
+{
+    curl_buffer.clean();
+    auto res = curl_perform_to_string_buffer(curl, url, &curl_buffer);
+    if (res != CURLE_OK) {
+        println(stderr, "curl_perform_to_string_buffer() failed: ",
+                curl_easy_strerror(res));
+        abort();
+    }
+
+    Memory memory = {};
+    memory.capacity = JSON_MEMORY_BUFFER_CAPACITY;
+    memory.buffer = json_memory_buffer;
+
+    String source = {
+        curl_buffer.size,
+        curl_buffer.data
+    };
+
+    Json_Result result = parse_json_value(&memory, source);
+    if (result.is_error) {
+        print_json_error(stdout, result, source, url);
+        abort();
+    }
+
+    return result.value;
+}
+
+void append_room_ffz_mapping(CURL *curl,
+                             const char *emotes_url,
+                             FILE *mapping,
+                             Fixed_Array<Curl_Download, 1024> *downloads)
+{
+    auto result = curl_perform_to_json_value(curl, emotes_url);
+    expect_json_type(result, JSON_OBJECT);
+
+    auto room = json_object_value_by_key(result.object, SLT("room"));
+    expect_json_type(room, JSON_OBJECT);
+
+    auto sets = json_object_value_by_key(result.object, SLT("sets"));
+    expect_json_type(sets, JSON_OBJECT);
+
+    auto set_id = json_object_value_by_key(room.object, SLT("set"));
+    expect_json_type(set_id, JSON_NUMBER);
+
+    auto set = json_object_value_by_key(sets.object, set_id.number.integer);
+    expect_json_type(set, JSON_OBJECT);
+
+    append_ffz_set(curl, set.object, mapping, downloads);
+}
+
+void append_global_ffz_mapping(CURL *curl,
+                               FILE *mapping,
+                               Fixed_Array<Curl_Download, 1024> *downloads)
+{
+    const char *const emotes_url = "https://api.frankerfacez.com/v1/set/global";
+    auto result = curl_perform_to_json_value(curl, emotes_url);
+
+    expect_json_type(result, JSON_OBJECT);
+    auto default_sets = json_object_value_by_key(result.object, SLT("default_sets"));
+    expect_json_type(default_sets, JSON_ARRAY);
+    auto sets = json_object_value_by_key(result.object, SLT("sets"));
+    expect_json_type(sets, JSON_OBJECT);
+
+    FOR_JSON(Json_Array, set_id, default_sets.array) {
+        expect_json_type(set_id->value, JSON_NUMBER);
+        auto set = json_object_value_by_key(sets.object, set_id->value.number.integer);
+        expect_json_type(set, JSON_OBJECT);
+        append_ffz_set(curl, set.object, mapping, downloads);
+    }
+}
+
 void append_bttv_mapping(CURL *curl,
                          const char *emotes_url,
                          FILE *mapping,
@@ -191,7 +299,7 @@ void append_bttv_mapping(CURL *curl,
 
         Curl_Download download = {};
 
-        download.file.write("emotes/"); // TODO: check for download.path.write return 09
+        download.file.write("emotes/"); // TODO: check for download.path.write return 0
         download.file.write(emote_id.string.data, emote_id.string.len);
         download.file.write(".");
         download.file.write(emote_imageType.string.data, emote_imageType.string.len);
@@ -257,8 +365,12 @@ int main(void)
 
     curl_multi_setopt(cm, CURLMOPT_MAXCONNECTS, MAX_PARALLEL);
 
+    // TODO: better naming scheme for the emotes
+
     append_bttv_mapping(curl, "https://api.betterttv.net/2/emotes", mapping, &downloads);
     append_bttv_mapping(curl, "https://api.betterttv.net/2/channels/tsoding", mapping, &downloads);
+    append_global_ffz_mapping(curl, mapping, &downloads);
+    append_room_ffz_mapping(curl, "https://api.frankerfacez.com/v1/room/tsoding", mapping, &downloads);
 
     size_t transfers = 0;
     for (transfers = 0; transfers < min(downloads.size, MAX_PARALLEL); ++transfers) {

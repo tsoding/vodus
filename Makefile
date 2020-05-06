@@ -3,13 +3,13 @@ CXXFLAGS=-Wall -O3 -fno-exceptions -std=c++17 -ggdb $(shell pkg-config --cflags 
 LIBS=$(shell pkg-config --libs $(PKGS)) -lgif -lpthread
 
 .PHONY: all
-all: vodus bttv_downloader Makefile
+all: vodus emote_downloader Makefile
 
 vodus: $(wildcard src/vodus*.cpp) $(wildcard src/core*.cpp)
 	$(CXX) $(CXXFLAGS) -o vodus src/vodus.cpp $(LIBS)
 
-bttv_downloader: src/bttv_downloader.cpp $(wildcard src/core*.cpp)
-	$(CXX) $(CXXFLAGS) -o bttv_downloader src/bttv_downloader.cpp $(LIBS)
+emote_downloader: src/emote_downloader.cpp $(wildcard src/core*.cpp)
+	$(CXX) $(CXXFLAGS) -o emote_downloader src/emote_downloader.cpp $(LIBS)
 
 .PHONY: render
 render: output.mpeg
