@@ -1,5 +1,5 @@
 PKGS=freetype2 libpng libavcodec libavutil libcurl
-CXXFLAGS=-Wall -O3 -fno-exceptions -std=c++17 -ggdb $(shell pkg-config --cflags $(PKGS))
+CXXFLAGS=-Wall -O0 -fno-exceptions -std=c++17 -ggdb $(shell pkg-config --cflags $(PKGS))
 LIBS=$(shell pkg-config --libs $(PKGS)) -lgif -lpthread
 
 .PHONY: all
@@ -15,4 +15,5 @@ emote_downloader: src/emote_downloader.cpp $(wildcard src/core*.cpp)
 render: output.mpeg
 
 output.mpeg: vodus
-	./vodus --font assets/ComicNeue_Bold.otf --output output.mpeg --limit 20 569086201.txt
+	./vodus --font assets/ComicNeue_Bold.otf --output output.mpeg --limit 20 sample.txt
+
