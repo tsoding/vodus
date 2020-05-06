@@ -14,13 +14,12 @@ struct Gif_Animat
     {
         if (is_null()) return;
 
-        // TODO(#29): If dt is too big Gif_Animat::index could probably go out of sync
         delay_time -= dt * 100;
-        if (delay_time <= 0.0f) {
+        while (delay_time <= 0.0f) {
             index = (index + 1) % file->ImageCount;
             int ok = DGifSavedExtensionToGCB(file, index, &gcb);
             assert(ok);
-            delay_time = gcb.DelayTime;
+            delay_time = gcb.DelayTime + delay_time;
         }
     }
 
