@@ -1,3 +1,8 @@
+void print1(FILE *stream, float f)
+{
+    fprintf(stream, "%f", f);
+}
+
 void print1(FILE *stream, char c)
 {
     fputc(c, stream);
@@ -6,6 +11,11 @@ void print1(FILE *stream, char c)
 void print1(FILE *stream, int x)
 {
     fprintf(stream, "%d", x);
+}
+
+void print1(FILE *stream, long int x)
+{
+    fprintf(stream, "%ld", x);
 }
 
 void print1(FILE *stream, long unsigned int x)

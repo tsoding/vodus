@@ -164,7 +164,7 @@ Image32 load_image32_from_png(const char *filepath)
     png_image_begin_read_from_file(&image, filepath);
 
     if (image.warning_or_error) {
-        fprintf(stderr, "Could not load file %s: %s\n", filepath, image.message);
+        println(stderr, "Could not load file `", filepath, "`: ", image.message);
         exit(1);
     }
 
@@ -173,7 +173,7 @@ Image32 load_image32_from_png(const char *filepath)
     png_image_finish_read(&image, NULL, buffer, 0, NULL);
 
     if (image.warning_or_error) {
-        fprintf(stderr, "Could not load file %s: %s\n", filepath, image.message);
+        println(stderr, "Could not load file `", filepath, "`: ", image.message);
         exit(1);
     }
 

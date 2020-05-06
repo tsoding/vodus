@@ -4,19 +4,16 @@ void avec(int code)
         const size_t buf_size = 256;
         char buf[buf_size];
         av_strerror(code, buf, buf_size);
-        fprintf(stderr, "ffmpeg pooped itself: %s\n", buf);
+        println(stderr, "ffmpeg pooped itself: ", buf);
         exit(1);
     }
 }
 
-template <typename T>
-T *fail_if_null(T *ptr, const char *format, ...)
+template <typename T, typename... Args>
+T *fail_if_null(T *ptr, Args... args)
 {
     if (ptr == nullptr) {
-        va_list args;
-        va_start(args, format);
-        vfprintf(stderr, format, args);
-        va_end(args);
+        println(stderr, args...);
         exit(1);
     }
 
@@ -25,10 +22,6 @@ T *fail_if_null(T *ptr, const char *format, ...)
 
 void encode_avframe(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE *outfile)
 {
-    if (frame) {
-        printf("Send frame %3" PRId64 "\n", frame->pts);
-    }
-
     avec(avcodec_send_frame(context, frame));
 
     for (int ret = 0; ret >= 0; ) {
@@ -39,7 +32,6 @@ void encode_avframe(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE
             avec(ret);
         }
 
-        printf("Write packet %3" PRId64 " (size=%5d)\n", pkt->pts, pkt->size);
         fwrite(pkt->data, 1, pkt->size, outfile);
         av_packet_unref(pkt);
     }
@@ -146,6 +138,7 @@ bool render_log(Image32 surface, FT_Face face,
     int text_y = FONT_HEIGHT + CHAT_PADDING;
     for (size_t i = message_begin; i < message_end; ++i) {
         int text_x = 0;
+
         render_message(surface, face, messages[i], &text_x, &text_y, emote_cache);
         text_y += FONT_HEIGHT + CHAT_PADDING;
     }
@@ -167,9 +160,12 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Emote_Ca
     size_t message_end = 0;
     float message_cooldown = 0.0f;
     size_t frame_index = 0;
-    for (; message_end < messages_size; ++frame_index) {
-        printf("Current message_end = %ld\n", message_end);
+    float t = 0.0f;
 
+    const size_t TRAILING_BUFFER_SEC = 2;
+    assert(messages_size > 0);
+    const float total_t = messages[messages_size - 1].timestamp + TRAILING_BUFFER_SEC;
+    for (; message_end < messages_size; ++frame_index) {
         if (message_cooldown <= 0.0f) {
             message_end += 1;
             auto t1 = messages[message_end - 1].timestamp;
@@ -188,9 +184,11 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Emote_Ca
         encode_frame(surface, frame_index);
 
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
+
+        t += VODUS_DELTA_TIME_SEC;
+        print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
     }
 
-    const size_t TRAILING_BUFFER_SEC = 2;
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * VODUS_FPS; ++i, ++frame_index) {
         while (render_log(surface, face, message_begin, message_end, emote_cache) &&
                message_begin < messages_size) {
@@ -198,7 +196,13 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Emote_Ca
         }
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
         encode_frame(surface, frame_index);
+
+        t += VODUS_DELTA_TIME_SEC;
+        print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
     }
+
+    print(stdout, "\rRendered ", (int) roundf(total_t), "/", (int) roundf(total_t), " seconds");
+    print(stdout, "\n");
 }
 
 void expect_char(String_View *input, char x)
@@ -324,7 +328,7 @@ int main(int argc, char *argv[])
     FT_Library library;
     auto error = FT_Init_FreeType(&library);
     if (error) {
-        fprintf(stderr, "Could not initialize FreeType2\n");
+        println(stderr, "Could not initialize FreeType2");
         exit(1);
     }
 
@@ -334,23 +338,19 @@ int main(int argc, char *argv[])
                         0,
                         &face);
     if (error == FT_Err_Unknown_File_Format) {
-        fprintf(stderr,
-                "%s appears to have an unsuppoted format\n",
-                face_filepath);
+        println(stderr, "`", face_filepath, "` appears to have an unsuppoted format");
         exit(1);
     } else if (error) {
-        fprintf(stderr,
-                "%s could not be opened\n",
-                face_filepath);
+        println(stderr, "`", face_filepath, "` could not be opened\n");
         exit(1);
     }
 
-    printf("Loaded %s\n", face_filepath);
-    printf("\tnum_glyphs = %ld\n", face->num_glyphs);
+    println(stdout, "Loaded ", face_filepath);
+    println(stdout, "\tnum_glyphs = ", face->num_glyphs);
 
     error = FT_Set_Pixel_Sizes(face, 0, VODUS_FONT_SIZE);
     if (error) {
-        fprintf(stderr, "Could not set font size in pixels\n");
+        println(stderr, "Could not set font size in pixels");
         exit(1);
     }
 
@@ -371,7 +371,7 @@ int main(int argc, char *argv[])
 
     AVCodecContext *context = fail_if_null(
         avcodec_alloc_context3(codec),
-        "Could not allocate video codec context\n");
+        "Could not allocate video codec context");
     defer(avcodec_free_context(&context));
 
     context->bit_rate = 400'000;
@@ -387,7 +387,7 @@ int main(int argc, char *argv[])
 
     AVPacket *packet = fail_if_null(
         av_packet_alloc(),
-        "Could not allocate packet\n");
+        "Could not allocate packet");
     defer(av_packet_free(&packet));
 
     avec(avcodec_open2(context, codec, NULL));
@@ -400,12 +400,12 @@ int main(int argc, char *argv[])
 
     FILE *output_stream = fail_if_null(
         fopen(output_filepath, "wb"),
-        "Could not open %s\n", output_filepath);
+        "Could not open ", output_filepath);
     defer(fclose(output_stream));
 
     AVFrame *frame = fail_if_null(
         av_frame_alloc(),
-        "Could not allocate video frame\n");
+        "Could not allocate video frame");
     defer(av_frame_free(&frame));
 
     frame->format = context->pix_fmt;
