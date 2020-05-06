@@ -8,6 +8,7 @@
 #include <pthread.h>
 #define CURL_STRICTER
 #include <curl/curl.h>
+#define TZOZEN_IMPLEMENTATION
 #include "./tzozen.h"
 #include "./core.cpp"
 
