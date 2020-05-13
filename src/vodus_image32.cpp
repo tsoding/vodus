@@ -55,19 +55,6 @@ Pixel32 mix_pixels(Pixel32 b32, Pixel32 a32)
     return pixel_to_pixel32(r);
 }
 
-int save_image32_as_png(Image32 image, const char *filename)
-{
-    png_image pimage = {0};
-    pimage.width = image.width;
-    pimage.height = image.height;
-    pimage.version = PNG_IMAGE_VERSION;
-    pimage.format = PNG_FORMAT_RGBA;
-
-    return png_image_write_to_file(&pimage,
-                                   filename, 0, image.pixels,
-                                   0, nullptr);
-}
-
 void fill_image32_with_color(Image32 image, Pixel32 color)
 {
     size_t n = image.width * image.height;
@@ -188,32 +175,11 @@ void slap_savedimage_onto_image32(Image32 dest,
 
 Image32 load_image32_from_png(const char *filepath)
 {
-    png_image image = {0};
-    image.version = PNG_IMAGE_VERSION;
-    png_image_begin_read_from_file(&image, filepath);
-
-    if (image.warning_or_error) {
-        println(stderr, "Could not load file `", filepath, "`: ", image.message);
-        exit(1);
-    }
-
-    image.format = PNG_FORMAT_RGBA;
-    Pixel32 *buffer = new Pixel32[image.width * image.height];
-    png_image_finish_read(&image, NULL, buffer, 0, NULL);
-
-    if (image.warning_or_error) {
-        println(stderr, "Could not load file `", filepath, "`: ", image.message);
-        exit(1);
-    }
-
-    Image32 result = {
-        .width = image.width,
-        .height = image.height,
-        .pixels = buffer,
-    };
-
-    png_image_free(&image);
-
+    Image32 result = {};
+    int w, h, n;
+    result.pixels = (Pixel32*) stbi_load(filepath, &w, &h, &n, 4);
+    result.width = w;
+    result.height = h;
     return result;
 }
 

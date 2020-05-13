@@ -1,4 +1,4 @@
-PKGS=freetype2 libpng libavcodec libavutil libcurl
+PKGS=freetype2 libavcodec libavutil libcurl
 CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb $(shell pkg-config --cflags $(PKGS))
 CXXFLAGS_RELEASE=$(CXXFLAGS) -O3
 CXXFLAGS_DEBUG=$(CXXFLAGS) -O0 -fno-builtin

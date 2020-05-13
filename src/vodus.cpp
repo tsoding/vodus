@@ -9,7 +9,8 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <gif_lib.h>
-#include <png.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "./stb_image.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
