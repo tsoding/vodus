@@ -1,3 +1,9 @@
+// TODO(#53): store all of the loaded images in Pixel for performance reason
+struct Pixel
+{
+    float r, g, b, a;
+};
+
 struct Pixel32
 {
     uint8_t r, g, b, a;
@@ -14,6 +20,40 @@ struct Image32
         return pixels == nullptr;
     }
 };
+
+Pixel pixel32_to_pixel(Pixel32 pixel)
+{
+    return Pixel {
+        ((float) pixel.r) / 255.0f,
+        ((float) pixel.g) / 255.0f,
+        ((float) pixel.b) / 255.0f,
+        ((float) pixel.a) / 255.0f
+    };
+}
+
+Pixel32 pixel_to_pixel32(Pixel pixel)
+{
+    return Pixel32 {
+        (uint8_t) floorf(pixel.r * 255.0f),
+        (uint8_t) floorf(pixel.g * 255.0f),
+        (uint8_t) floorf(pixel.b * 255.0f),
+        (uint8_t) floorf(pixel.a * 255.0f)
+    };
+}
+
+Pixel32 mix_pixels(Pixel32 b32, Pixel32 a32)
+{
+    const auto a = pixel32_to_pixel(a32);
+    const auto b = pixel32_to_pixel(b32);
+
+    Pixel r = {};
+    r.a = a.a + b.a * (1.0f - a.a);
+    r.r = (a.r * a.a + b.r * b.a * (1.0f - a.a)) / r.a;
+    r.g = (a.g * a.a + b.g * b.a * (1.0f - a.a)) / r.a;
+    r.b = (a.b * a.a + b.b * b.a * (1.0f - a.a)) / r.a;
+
+    return pixel_to_pixel32(r);
+}
 
 int save_image32_as_png(Image32 image, const char *filename)
 {
@@ -51,23 +91,10 @@ void slap_ftbitmap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int
                         a * color.g + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].g;
                     dest.pixels[(row + y) * dest.width + col + x].b =
                         a * color.b + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].b;
+                    dest.pixels[(row + y) * dest.width + col + x].a =
+                        a * color.a + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].a;
                 }
                 // TODO(#6): how do we mix alphas?
-            }
-        }
-    }
-}
-
-// TODO(#22): slap_image32_onto_image32 does not support alpha blending
-void slap_image32_onto_image32(Image32 dest, Image32 src, int x, int y)
-{
-    for (size_t row = 0; (row < src.height); ++row) {
-        if (row + y < dest.height) {
-            for (size_t col = 0; (col < src.width); ++col) {
-                if (col + x < dest.width) {
-                    dest.pixels[(row + y) * dest.width + col + x] =
-                        src.pixels[row * src.width + col];
-                }
             }
         }
     }
@@ -83,10 +110,12 @@ void slap_image32_onto_image32(Image32 dest, Image32 src,
         if (row + y < dest.height) {
             for (size_t col = 0; (col < target_width); ++col) {
                 if (col + x < dest.width) {
-                    int src_row = floorf((float) row / target_height * src.height);
-                    int src_col = floorf((float) col / target_width * src.width);
+                    const int src_row = floorf((float) row / target_height * src.height);
+                    const int src_col = floorf((float) col / target_width * src.width);
+                    const auto dest_pixel = dest.pixels[(row + y) * dest.width + col + x];
+                    const auto src_pixel = src.pixels[src_row * src.width + src_col];
                     dest.pixels[(row + y) * dest.width + col + x] =
-                        src.pixels[src_row * src.width + src_col];
+                        mix_pixels(dest_pixel, src_pixel);
                 }
             }
         }
