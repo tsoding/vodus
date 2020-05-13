@@ -113,7 +113,7 @@ void expect_json_type(Json_Value value, Json_Type type)
     }
 }
 
-const size_t PATH_BUFFER_SIZE = 256;
+const size_t PATH_BUFFER_SIZE = 1024;
 const size_t MAX_PARALLEL = 20;
 
 struct Curl_Download
@@ -167,7 +167,7 @@ void append_ffz_set(CURL *curl,
 
             Curl_Download download = {};
 
-            download.file.write("emotes/"); // TODO: check for download.path.write return 0
+            download.file.write("emotes/");
             download.file.write(emote_id.number.integer.data, emote_id.number.integer.len);
             download.file.write(".png");
             download.url.write("https:");
@@ -298,7 +298,7 @@ void append_bttv_mapping(CURL *curl,
 
         Curl_Download download = {};
 
-        download.file.write("emotes/"); // TODO: check for download.path.write return 0
+        download.file.write("emotes/");
         download.file.write(emote_id.string.data, emote_id.string.len);
         download.file.write(".");
         download.file.write(emote_imageType.string.data, emote_imageType.string.len);
