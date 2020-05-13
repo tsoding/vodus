@@ -1,4 +1,4 @@
-// TODO: store all of the loaded images in Pixel for performance reason
+// TODO(#53): store all of the loaded images in Pixel for performance reason
 struct Pixel
 {
     float r, g, b, a;
