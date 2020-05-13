@@ -1,4 +1,5 @@
-vodus
+vodus.release
+vodus.debug
 emote_downloader
 *.ppm
 *.mp4
