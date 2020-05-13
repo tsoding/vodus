@@ -319,7 +319,7 @@ int create_directory_if_not_exists(const char *dirpath)
 
     if (res == -1) {
         if (errno == ENOENT) {
-            // TODO: create_directory_if_not_exists does not create parent folders
+            // TODO(#54): create_directory_if_not_exists does not create parent folders
             return mkdir(dirpath, 0755);
         } else {
             return -1;
