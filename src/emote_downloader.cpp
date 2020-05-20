@@ -26,6 +26,7 @@ struct Fixed_Array
 
     void push(T x)
     {
+        assert(size < Capacity);
         elements[size++] = x;
     }
 };
@@ -49,6 +50,13 @@ struct String_Buffer
     size_t write(const char *cstr)
     {
         return write(cstr, strlen(cstr));
+    }
+
+    size_t write(size_t x)
+    {
+        const auto n = snprintf(data + size, Capacity - size, "%ld", x);
+        this->size += n;
+        return n;
     }
 
     void clean()
@@ -120,7 +128,6 @@ struct Curl_Download
 {
     String_Buffer<PATH_BUFFER_SIZE> url;
     String_Buffer<PATH_BUFFER_SIZE> file;
-
 };
 
 void add_download_to_multi_handle(Curl_Download download, CURLM *cm)
@@ -167,8 +174,8 @@ void append_ffz_set(CURL *curl,
 
             Curl_Download download = {};
 
-            download.file.write("emotes/");
-            download.file.write(emote_id.number.integer.data, emote_id.number.integer.len);
+            download.file.write("emotes/emote-");
+            download.file.write(downloads->size);
             download.file.write(".png");
             download.url.write("https:");
             download.url.write(url.string.data, url.string.len);
@@ -254,7 +261,7 @@ void append_global_ffz_mapping(CURL *curl,
 void append_bttv_mapping(CURL *curl,
                          const char *emotes_url,
                          FILE *mapping,
-                         Fixed_Array<Curl_Download, 1024> *bttv_urls)
+                         Fixed_Array<Curl_Download, 1024> *downloads)
 {
     curl_buffer.clean();
 
@@ -298,8 +305,8 @@ void append_bttv_mapping(CURL *curl,
 
         Curl_Download download = {};
 
-        download.file.write("emotes/");
-        download.file.write(emote_id.string.data, emote_id.string.len);
+        download.file.write("emotes/emote-");
+        download.file.write(downloads->size);
         download.file.write(".");
         download.file.write(emote_imageType.string.data, emote_imageType.string.len);
 
@@ -308,7 +315,7 @@ void append_bttv_mapping(CURL *curl,
         download.url.write("/3x");
 
         println(mapping, emote_code.string, ",", download.file);
-        bttv_urls->push(download);
+        downloads->push(download);
     };
 }
 
