@@ -1,11 +1,14 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include <sys/types.h>
+#ifdef _WIN32
+#include <direct.h>
+#else
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
+#endif
 
-#include <pthread.h>
 #define CURL_STRICTER
 #include <curl/curl.h>
 #define TZOZEN_IMPLEMENTATION
@@ -319,26 +322,76 @@ void append_bttv_mapping(CURL *curl,
     };
 }
 
-int create_directory_if_not_exists(const char *dirpath)
+bool is_sep(char x)
 {
-    struct stat statbuf = {};
-    int res = stat(dirpath, &statbuf);
+#ifdef _WIN32
+    return x == '/' || x == '\\';
+#else
+    return x == '/';
+#endif
+}
 
-    if (res == -1) {
-        if (errno == ENOENT) {
-            // TODO(#54): create_directory_if_not_exists does not create parent folders
-            return mkdir(dirpath, 0755);
-        } else {
-            return -1;
+struct Path
+{
+    String_View as_string_view;
+
+    Path parent()
+    {
+        auto p = as_string_view;
+
+        while (p.count > 0 && is_sep(*(p.data + p.count - 1))) {
+            p.chop_back(1);
         }
+
+        while (p.count > 0 && !is_sep(*(p.data + p.count - 1))) {
+            p.chop_back(1);
+        }
+
+        return p.count == 0 ? Path {as_string_view} : Path {p};
     }
 
-    if ((statbuf.st_mode & S_IFMT) != S_IFDIR) {
-        errno = ENOTDIR;
-        return -1;
+    void copy_to(char *buffer, size_t size)
+    {
+        memcpy(buffer, as_string_view.data,
+               min(size, as_string_view.count));
     }
+};
 
-    return 0;
+void print1(FILE *stream, Path path)
+{
+    print1(stream, path.as_string_view);
+}
+
+bool path_exists(Path path)
+{
+    char pathname[256 + 1] = {};
+    path.copy_to(pathname, sizeof(pathname) - 1);
+#ifdef _WIN32
+    struct _stat statbuf = {};
+    return _stat(pathname, &statbuf) == 0;
+#else
+    struct stat statbuf = {};
+    return stat(pathname, &statbuf) == 0;
+#endif
+}
+
+int create_directory(Path dirpath)
+{
+    char pathname[256 + 1] = {};
+    dirpath.copy_to(pathname, sizeof(pathname) - 1);
+#ifdef _WIN32
+    return _mkdir(pathname);
+#else
+    return mkdir(pathname, 0755);
+#endif
+}
+
+void create_all_directories(Path dirpath)
+{
+    while (!path_exists(dirpath)) {
+        create_all_directories(dirpath.parent());
+        create_directory(dirpath);
+    }
 }
 
 Fixed_Array<Curl_Download, 1024> downloads;
@@ -364,7 +417,7 @@ int main(void)
     }
     defer(fclose(mapping));
 
-    create_directory_if_not_exists(EMOTE_CACHE_DIRECTORY);
+    create_directory(Path {cstr_as_string_view(EMOTE_CACHE_DIRECTORY)});
 
     CURLM *cm = curl_multi_init();
     defer(curl_multi_cleanup(cm));

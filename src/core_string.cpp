@@ -40,6 +40,11 @@ struct String_View
         return trim_begin().trim_end();
     }
 
+    void chop_back(size_t n)
+    {
+        count -= n < count ? n : count;
+    }
+
     void chop(size_t n)
     {
         if (n > count) {
