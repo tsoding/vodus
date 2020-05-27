@@ -96,15 +96,14 @@ void render_message(Image32 surface, FT_Face face,
             auto emote = maybe_emote.unwrap;
 
             const float emote_ratio = (float) emote.width() / emote.height();
-            const int emote_height = VODUS_FONT_SIZE;
+            // const int emote_height = face->height;
+            const int emote_height = 128;
             const int emote_width = floorf(emote_height * emote_ratio);
 
             if (*x + emote_width >= (int)surface.width) {
                 *x = 0;
-                // TODO(#31): the size of the font in word wrapping should be taken from the face itself
-                //   Right now font size is hardcoded.
-                //   Grep for `@word-wrap-face` to find all of the hardcoded places
-                *y += VODUS_FONT_SIZE;
+                // *y += face->height;
+                *y += 128;
             }
 
             emote.slap_onto_image32(surface,
@@ -133,26 +132,38 @@ bool render_log(Image32 surface, FT_Face face,
                 Emote_Cache *emote_cache)
 {
     fill_image32_with_color(surface, {0, 0, 0, 255});
-    const int FONT_HEIGHT = VODUS_FONT_SIZE;
     const int CHAT_PADDING = 0;
-    int text_y = FONT_HEIGHT + CHAT_PADDING;
+    // int text_y = face->height + CHAT_PADDING;
+    int text_y = 128 + CHAT_PADDING;
     for (size_t i = message_begin; i < message_end; ++i) {
         int text_x = 0;
 
         render_message(surface, face, messages[i], &text_x, &text_y, emote_cache);
-        text_y += FONT_HEIGHT + CHAT_PADDING;
+        // text_y += face->height + CHAT_PADDING;
+        text_y += 128 + CHAT_PADDING;
     }
     return text_y > (int)surface.height;
 }
 
-void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Emote_Cache *emote_cache)
+struct Video_Params
+{
+    size_t fps;
+    size_t width;
+    size_t height;
+    size_t font_size;
+};
+
+void sample_chat_log_animation(FT_Face face,
+                               Encode_Frame encode_frame,
+                               Emote_Cache *emote_cache,
+                               Video_Params params)
 {
     assert(emote_cache);
 
     Image32 surface = {
-        .width = VODUS_WIDTH,
-        .height = VODUS_HEIGHT,
-        .pixels = new Pixel32[VODUS_WIDTH * VODUS_HEIGHT]
+        .width = params.width,
+        .height = params.height,
+        .pixels = new Pixel32[params.width * params.height]
     };
     defer(delete[] surface.pixels);
 
@@ -162,6 +173,7 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Emote_Ca
     size_t frame_index = 0;
     float t = 0.0f;
 
+    const float VODUS_DELTA_TIME_SEC = 1.0f / params.fps;
     const size_t TRAILING_BUFFER_SEC = 2;
     assert(messages_size > 0);
     const float total_t = messages[messages_size - 1].timestamp + TRAILING_BUFFER_SEC;
@@ -189,7 +201,7 @@ void sample_chat_log_animation(FT_Face face, Encode_Frame encode_frame, Emote_Ca
         print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
     }
 
-    for (size_t i = 0; i < TRAILING_BUFFER_SEC * VODUS_FPS; ++i, ++frame_index) {
+    for (size_t i = 0; i < TRAILING_BUFFER_SEC * params.fps; ++i, ++frame_index) {
         while (render_log(surface, face, message_begin, message_end, emote_cache) &&
                message_begin < messages_size) {
             message_begin++;
@@ -267,8 +279,19 @@ int main(int argc, char *argv[])
     const char *output_filepath = nullptr;
     size_t messages_limit = VODUS_MESSAGES_CAPACITY;
 
+    const size_t VODUS_DEFAULT_FPS = 60;
+    const size_t VODUS_DEFAULT_WIDTH = 1920;
+    const size_t VODUS_DEFAULT_HEIGHT = 1080;
+    const size_t VODUS_DEFAULT_FONT_SIZE = 128;
+
+    Video_Params params = {};
+    params.fps       = VODUS_DEFAULT_FPS;
+    params.width     = VODUS_DEFAULT_WIDTH;
+    params.height    = VODUS_DEFAULT_HEIGHT;
+    params.font_size = VODUS_DEFAULT_FONT_SIZE;
+
     for (int i = 1; i < argc;) {
-        const char *arg = argv[i];
+        const auto arg = cstr_as_string_view(argv[i]);
 
 #define BEGIN_PARAMETER(name)                                           \
         if (i + 1 >= argc) {                                            \
@@ -276,33 +299,47 @@ int main(int argc, char *argv[])
             usage(stderr);                                              \
             exit(1);                                                    \
         }                                                               \
-        const char * name = argv[i + 1]
+        const auto name = argv[i + 1];
 
 #define END_PARAMETER i += 2
 
-        if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0)  {
+#define INTEGER_PARAMETER(variable)                                     \
+        do {                                                            \
+            BEGIN_PARAMETER(cstr);                                      \
+            auto maybe = cstr_as_string_view(cstr).as_integer<size_t>(); \
+            if (!maybe.has_value) {                                     \
+                println(stderr, "Error: `", arg, "` is not an integer"); \
+                usage(stderr);                                          \
+                exit(1);                                                \
+            }                                                           \
+            variable = maybe.unwrap;                                    \
+            END_PARAMETER;                                              \
+        } while (0)
+
+#define CSTR_PARAMETER(variable)                \
+        do {                                    \
+            BEGIN_PARAMETER(cstr);              \
+            variable = cstr;                    \
+            END_PARAMETER;                      \
+        } while (0)
+
+        if (arg == "--help"_sv || arg == "-h"_sv)  {
             usage(stdout);
             exit(0);
-        } else if (strcmp(arg, "--font") == 0) {
-            BEGIN_PARAMETER(filepath);
-            face_filepath = filepath;
-            END_PARAMETER;
-        } else if (strcmp(arg, "--output") == 0 || strcmp(arg, "-o") == 0) {
-            BEGIN_PARAMETER(filepath);
-            output_filepath = filepath;
-            END_PARAMETER;
-        } else if (strcmp(arg, "--limit") == 0) {
-            BEGIN_PARAMETER(limit_cstr);
-
-            auto limit_maybe_integer = cstr_as_string_view(limit_cstr).as_integer<size_t>();
-            if (!limit_maybe_integer.has_value) {
-                println(stderr, "Error: `", arg, "` is not an integer");
-                usage(stderr);
-                exit(1);
-            }
-            messages_limit = limit_maybe_integer.unwrap;
-
-            END_PARAMETER;
+        } else if (arg == "--font"_sv) {
+            CSTR_PARAMETER(face_filepath);
+        } else if (arg == "--output"_sv || arg == "-o"_sv) {
+            CSTR_PARAMETER(output_filepath);
+        } else if (arg == "--limit"_sv) {
+            INTEGER_PARAMETER(messages_limit);
+        } else if (arg == "--width"_sv) {
+            INTEGER_PARAMETER(params.width);
+        } else if (arg == "--height"_sv) {
+            INTEGER_PARAMETER(params.height);
+        } else if (arg == "--fps"_sv) {
+            INTEGER_PARAMETER(params.fps);
+        } else if (arg == "--font-size"_sv) {
+            INTEGER_PARAMETER(params.font_size);
         } else {
             if (log_filepath != nullptr) {
                 println(stderr, "Error: Input log file is provided twice");
@@ -315,8 +352,15 @@ int main(int argc, char *argv[])
             i += 1;
         }
 
+#undef CSTR_PARAMETER
+#undef INTEGER_PARAMETER
 #undef END_PARAMETER
 #undef BEGIN_PARAMETER
+    }
+
+    if (params.width % 2 != 0 || params.height % 2 != 0) {
+        println(stderr, "Error: resolution must be multiple of two!");
+        exit(1);
     }
 
     if (face_filepath == nullptr) {
@@ -348,7 +392,7 @@ int main(int argc, char *argv[])
     println(stdout, "Loaded ", face_filepath);
     println(stdout, "\tnum_glyphs = ", face->num_glyphs);
 
-    error = FT_Set_Pixel_Sizes(face, 0, VODUS_FONT_SIZE);
+    error = FT_Set_Pixel_Sizes(face, 0, params.font_size);
     if (error) {
         println(stderr, "Could not set font size in pixels");
         exit(1);
@@ -375,12 +419,10 @@ int main(int argc, char *argv[])
     defer(avcodec_free_context(&context));
 
     context->bit_rate = 400'000;
-    static_assert(VODUS_WIDTH % 2 == 0, "Resolution must be multiple of two");
-    static_assert(VODUS_HEIGHT % 2 == 0, "Resolution must be multiple of two");
-    context->width = VODUS_WIDTH;
-    context->height = VODUS_HEIGHT;
-    context->time_base = (AVRational){1, VODUS_FPS};
-    context->framerate = (AVRational){VODUS_FPS, 1};
+    context->width = params.width;
+    context->height = params.height;
+    context->time_base = (AVRational){1, (int) params.fps};
+    context->framerate = (AVRational){(int) params.fps, 1};
     context->gop_size = 10;
     context->max_b_frames = 1;
     context->pix_fmt = AV_PIX_FMT_YUV420P;
@@ -444,7 +486,7 @@ int main(int argc, char *argv[])
                   return m1.timestamp < m2.timestamp;
               });
 
-    sample_chat_log_animation(face, encode_frame, &emote_cache);
+    sample_chat_log_animation(face, encode_frame, &emote_cache, params);
 
     encode_avframe(context, NULL, packet, output_stream);
 
