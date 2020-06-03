@@ -266,6 +266,18 @@ void usage(FILE *stream)
     println(stream, "    --limit <number>          Limit the amout of messages to render");
 }
 
+Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
+{
+    if (hexstr.count != 8) return {};
+
+    Pixel32 result = {};
+    ASSIGN_UNWRAP(result.r, hexstr.subview(0, 2).from_hex<uint8_t>());
+    ASSIGN_UNWRAP(result.g, hexstr.subview(2, 2).from_hex<uint8_t>());
+    ASSIGN_UNWRAP(result.b, hexstr.subview(4, 2).from_hex<uint8_t>());
+    ASSIGN_UNWRAP(result.a, hexstr.subview(6, 2).from_hex<uint8_t>());
+    return {true, result};
+}
+
 int main(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
@@ -315,6 +327,19 @@ int main(int argc, char *argv[])
             END_PARAMETER;                      \
         } while (0)
 
+#define COLOR_PARAMETER(place)                                          \
+        do {                                                            \
+            BEGIN_PARAMETER(cstr);                                      \
+            auto maybe = hexstr_as_pixel32(cstr_as_string_view(cstr));  \
+            if (!maybe.has_value) {                                     \
+                println(stderr, "Error: `", arg, "` is not a hexstr of a color"); \
+                usage(stderr);                                          \
+                exit(1);                                                \
+            }                                                           \
+            place = maybe.unwrap;                                       \
+            END_PARAMETER;                                              \
+        } while (0)
+
         if (arg == "--help"_sv || arg == "-h"_sv)  {
             usage(stdout);
             exit(0);
@@ -332,6 +357,12 @@ int main(int argc, char *argv[])
             INTEGER_PARAMETER(params.fps);
         } else if (arg == "--font-size"_sv) {
             INTEGER_PARAMETER(params.font_size);
+        } else if (arg == "--background-color"_sv) {
+            COLOR_PARAMETER(params.background_colour);
+        } else if (arg == "--nickname-color"_sv) {
+            COLOR_PARAMETER(params.nickname_colour);
+        } else if (arg == "--text-color"_sv) {
+            COLOR_PARAMETER(params.text_colour);
         } else {
             if (log_filepath != nullptr) {
                 println(stderr, "Error: Input log file is provided twice");
