@@ -70,7 +70,8 @@ using Encode_Frame = std::function<void(Image32, int)>;
 void render_message(Image32 surface, FT_Face face,
                     Message message,
                     int *x, int *y,
-                    Emote_Cache *emote_cache)
+                    Emote_Cache *emote_cache,
+                    Video_Params params)
 {
     assert(emote_cache);
 
@@ -78,13 +79,15 @@ void render_message(Image32 surface, FT_Face face,
                                    face,
                                    message.nickname,
                                    {255, 0, 0, 255},
-                                   x, y);
+                                   x, y,
+                                   params);
 
     slap_text_onto_image32_wrapped(surface,
                                    face,
                                    ": ",
                                    {255, 0, 0, 255},
-                                   x, y);
+                                   x, y,
+                                   params);
 
     auto text = message.message.trim();
     while (text.count > 0) {
@@ -96,14 +99,12 @@ void render_message(Image32 surface, FT_Face face,
             auto emote = maybe_emote.unwrap;
 
             const float emote_ratio = (float) emote.width() / emote.height();
-            // const int emote_height = face->height;
-            const int emote_height = 128;
+            const int emote_height = params.font_size;
             const int emote_width = floorf(emote_height * emote_ratio);
 
             if (*x + emote_width >= (int)surface.width) {
                 *x = 0;
-                // *y += face->height;
-                *y += 128;
+                *y += params.font_size;
             }
 
             emote.slap_onto_image32(surface,
@@ -115,43 +116,36 @@ void render_message(Image32 surface, FT_Face face,
                                            face,
                                            word,
                                            {0, 255, 0, 255},
-                                           x, y);
+                                           x, y,
+                                           params);
         }
 
         slap_text_onto_image32_wrapped(surface,
                                        face,
                                        " ",
                                        {0, 255, 0, 255},
-                                       x, y);
+                                       x, y,
+                                       params);
     }
 }
 
 bool render_log(Image32 surface, FT_Face face,
                 size_t message_begin,
                 size_t message_end,
-                Emote_Cache *emote_cache)
+                Emote_Cache *emote_cache,
+                Video_Params params)
 {
     fill_image32_with_color(surface, {0, 0, 0, 255});
     const int CHAT_PADDING = 0;
-    // int text_y = face->height + CHAT_PADDING;
-    int text_y = 128 + CHAT_PADDING;
+    int text_y = params.font_size + CHAT_PADDING;
     for (size_t i = message_begin; i < message_end; ++i) {
         int text_x = 0;
 
-        render_message(surface, face, messages[i], &text_x, &text_y, emote_cache);
-        // text_y += face->height + CHAT_PADDING;
-        text_y += 128 + CHAT_PADDING;
+        render_message(surface, face, messages[i], &text_x, &text_y, emote_cache, params);
+        text_y += params.font_size + CHAT_PADDING;
     }
     return text_y > (int)surface.height;
 }
-
-struct Video_Params
-{
-    size_t fps;
-    size_t width;
-    size_t height;
-    size_t font_size;
-};
 
 void sample_chat_log_animation(FT_Face face,
                                Encode_Frame encode_frame,
@@ -189,7 +183,7 @@ void sample_chat_log_animation(FT_Face face,
 
         // TODO(#16): animate appearance of the message
         // TODO(#33): scroll implementation simply rerenders frames until they fit the screen which might be slow
-        while (render_log(surface, face, message_begin, message_end, emote_cache) &&
+        while (render_log(surface, face, message_begin, message_end, emote_cache, params) &&
                message_begin < messages_size) {
             message_begin++;
         }
@@ -202,7 +196,7 @@ void sample_chat_log_animation(FT_Face face,
     }
 
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * params.fps; ++i, ++frame_index) {
-        while (render_log(surface, face, message_begin, message_end, emote_cache) &&
+        while (render_log(surface, face, message_begin, message_end, emote_cache, params) &&
                message_begin < messages_size) {
             message_begin++;
         }
@@ -357,6 +351,8 @@ int main(int argc, char *argv[])
 #undef END_PARAMETER
 #undef BEGIN_PARAMETER
     }
+
+    println(stdout, "params = ", params);
 
     if (params.width % 2 != 0 || params.height % 2 != 0) {
         println(stderr, "Error: resolution must be multiple of two!");
