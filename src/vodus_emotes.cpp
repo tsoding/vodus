@@ -151,8 +151,7 @@ Emote load_png_emote(String_View filepath)
 struct Emote_Mapping
 {
     String_View name;
-    String_View file;
-    Maybe<Emote> emote;
+    Emote emote;
 };
 
 struct Emote_Cache
@@ -160,50 +159,45 @@ struct Emote_Cache
     Maybe<Emote> emote_by_name(String_View name,
                                const char *channel = nullptr)
     {
-        auto maybe_mapping_index = mapping_by_name(name);
-        if (!maybe_mapping_index.has_value) return {};
-        auto mapping_index = maybe_mapping_index.unwrap;
-
-        if (!emote_mapping[mapping_index].emote.has_value) {
-            auto filename = emote_mapping[mapping_index].file;
-            auto ext = file_extension(filename);
-
-            if (ext == "gif"_sv) {
-                emote_mapping[mapping_index].emote = {true, load_gif_emote(filename)};
-            } else if (ext == "png"_sv) {
-                emote_mapping[mapping_index].emote = {true, load_png_emote(filename)};
-            } else {
-                println(stderr, filename, " has unsupported extension ", ext);
-                abort();
-            }
-        }
-
-        return emote_mapping[mapping_index].emote;
-    }
-
-    void update_gifs(float delta_time)
-    {
-        for (size_t i = 0; i < emote_mapping_count; ++i) {
-            if (!emote_mapping[i].emote.has_value) continue;
-            if (emote_mapping[i].emote.unwrap.type != Emote::Gif) continue;
-            emote_mapping[i].emote.unwrap.gif.update(delta_time);
-        }
-    }
-
-    Maybe<size_t> mapping_by_name(String_View name)
-    {
         for (size_t i = 0; i < emote_mapping_count; ++i) {
             if (emote_mapping[i].name == name) {
-                return {true, i};
+                return {true, emote_mapping[i].emote};
             }
         }
 
         return {};
     }
 
-    void add_mapping(String_View name, String_View file)
+    void update_gifs(float delta_time)
     {
-        emote_mapping[emote_mapping_count++] = {name, file};
+        for (size_t i = 0; i < emote_mapping_count; ++i) {
+            if (emote_mapping[i].emote.type == Emote::Gif) {
+                emote_mapping[i].emote.gif.update(delta_time);
+            }
+        }
+    }
+
+    void populate_from_file(const char *mapping_filepath)
+    {
+        auto mapping_csv = file_as_string_view(mapping_filepath);
+        while (mapping_csv.count > 0) {
+            auto line = mapping_csv.chop_by_delim('\n');
+            auto name = line.chop_by_delim(',');
+            auto filename = line;
+            auto ext = file_extension(filename);
+
+            if (ext == "gif"_sv) {
+                emote_mapping[emote_mapping_count].emote = load_gif_emote(filename);
+            } else if (ext == "png"_sv) {
+                emote_mapping[emote_mapping_count].emote = load_png_emote(filename);
+            } else {
+                println(stderr, filename, " has unsupported extension ", ext);
+                abort();
+            }
+            emote_mapping[emote_mapping_count].name = name;
+
+            emote_mapping_count += 1;
+        }
     }
 
     Emote_Mapping emote_mapping[EMOTE_MAPPING_CAPACITY] = {};
