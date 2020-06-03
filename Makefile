@@ -20,5 +20,5 @@ emote_downloader: src/emote_downloader.cpp $(wildcard src/core*.cpp)
 render: output.mpeg
 
 output.mpeg: vodus.release
-	./vodus.release --font assets/ComicNeue_Bold.otf --output output.mpeg --limit 20 sample.txt
+	./vodus.release --font assets/ComicNeue_Bold.otf --output output.mpeg --font-size 5 --fps 5 --width 120 --height 80 --limit 20 sample.txt
 

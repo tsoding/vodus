@@ -224,7 +224,8 @@ void slap_text_onto_image32_wrapped(Image32 surface,
                                     FT_Face face,
                                     String_View text,
                                     Pixel32 color,
-                                    int *pen_x, int *pen_y)
+                                    int *pen_x, int *pen_y,
+                                    Video_Params params)
 {
     int copy_x = *pen_x;
     int copy_y = *pen_y;
@@ -232,8 +233,7 @@ void slap_text_onto_image32_wrapped(Image32 surface,
     advance_pen_for_text(face, text, &copy_x, &copy_y);
     if (copy_x >= (int)surface.width) {
         *pen_x = 0;
-        // @word-wrap-face
-        *pen_y += VODUS_FONT_SIZE;
+        *pen_y += params.font_size;
     }
 
     slap_text_onto_image32(surface, face, text, color, pen_x, pen_y);
@@ -243,13 +243,15 @@ void slap_text_onto_image32_wrapped(Image32 surface,
                                     FT_Face face,
                                     const char *cstr,
                                     Pixel32 color,
-                                    int *pen_x, int *pen_y)
+                                    int *pen_x, int *pen_y,
+                                    Video_Params params)
 {
     slap_text_onto_image32_wrapped(surface,
                                    face,
                                    cstr_as_string_view(cstr),
                                    color,
-                                   pen_x, pen_y);
+                                   pen_x, pen_y,
+                                   params);
 }
 
 void slap_text_onto_image32(Image32 surface,
