@@ -78,16 +78,16 @@ void render_message(Image32 surface, FT_Face face,
     slap_text_onto_image32_wrapped(surface,
                                    face,
                                    message.nickname,
-                                   {255, 0, 0, 255},
+                                   params.nickname_colour,
                                    x, y,
-                                   params);
+                                   params.font_size);
 
     slap_text_onto_image32_wrapped(surface,
                                    face,
                                    ": ",
-                                   {255, 0, 0, 255},
+                                   params.nickname_colour,
                                    x, y,
-                                   params);
+                                   params.font_size);
 
     auto text = message.message.trim();
     while (text.count > 0) {
@@ -115,17 +115,17 @@ void render_message(Image32 surface, FT_Face face,
             slap_text_onto_image32_wrapped(surface,
                                            face,
                                            word,
-                                           {0, 255, 0, 255},
+                                           params.text_colour,
                                            x, y,
-                                           params);
+                                           params.font_size);
         }
 
         slap_text_onto_image32_wrapped(surface,
                                        face,
                                        " ",
-                                       {0, 255, 0, 255},
+                                       params.text_colour,
                                        x, y,
-                                       params);
+                                       params.font_size);
     }
 }
 
@@ -135,7 +135,7 @@ bool render_log(Image32 surface, FT_Face face,
                 Emote_Cache *emote_cache,
                 Video_Params params)
 {
-    fill_image32_with_color(surface, {0, 0, 0, 255});
+    fill_image32_with_color(surface, params.background_colour);
     const int CHAT_PADDING = 0;
     int text_y = params.font_size + CHAT_PADDING;
     for (size_t i = message_begin; i < message_end; ++i) {
@@ -273,16 +273,14 @@ int main(int argc, char *argv[])
     const char *output_filepath = nullptr;
     size_t messages_limit = VODUS_MESSAGES_CAPACITY;
 
-    const size_t VODUS_DEFAULT_FPS = 60;
-    const size_t VODUS_DEFAULT_WIDTH = 1920;
-    const size_t VODUS_DEFAULT_HEIGHT = 1080;
-    const size_t VODUS_DEFAULT_FONT_SIZE = 128;
-
     Video_Params params = {};
-    params.fps       = VODUS_DEFAULT_FPS;
-    params.width     = VODUS_DEFAULT_WIDTH;
-    params.height    = VODUS_DEFAULT_HEIGHT;
-    params.font_size = VODUS_DEFAULT_FONT_SIZE;
+    params.fps               = 60;
+    params.width             = 1920;
+    params.height            = 1080;
+    params.font_size         = 128;
+    params.background_colour = {32, 32, 32, 255};
+    params.nickname_colour   = {255, 100, 100, 255};
+    params.text_colour       = {200, 200, 200, 255};
 
     for (int i = 1; i < argc;) {
         const auto arg = cstr_as_string_view(argv[i]);
