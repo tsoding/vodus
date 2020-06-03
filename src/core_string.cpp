@@ -12,20 +12,6 @@ struct Maybe
         (place) = __x.unwrap;                     \
     } while (0)
 
-template <typename Integer>
-Maybe<Integer> char_to_hex(char x)
-{
-    if ('0' <= x && x <= '9') {
-        return {true, (Integer) (x - '0')};
-    } else if ('a' <= x && x <= 'f') {
-        return {true, (Integer) (x - 'a' + 10)};
-    } else if ('A' <= x && x <= 'F') {
-        return {true, (Integer) (x - 'A' + 10)};
-    }
-
-    return {};
-}
-
 // TODO(#20): String_View does not support unicode
 struct String_View
 {
@@ -111,7 +97,15 @@ struct String_View
 
         for (size_t i = 0; i < count; ++i) {
             Integer x = {};
-            ASSIGN_UNWRAP(x, char_to_hex<Integer>(data[i]));
+            if ('0' <= x && x <= '9') {
+                x = (Integer) (x - '0');
+            } else if ('a' <= x && x <= 'f') {
+                x = (Integer) (x - 'a' + 10);
+            } else if ('A' <= x && x <= 'F') {
+                x = (Integer) (x - 'A' + 10);
+            } else {
+                return {};
+            }
             result = result * (Integer) 0x10 + x;
         }
 
