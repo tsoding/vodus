@@ -96,7 +96,7 @@ struct String_View
         Integer result = {};
 
         for (size_t i = 0; i < count; ++i) {
-            Integer x = {};
+            Integer x = data[i];
             if ('0' <= x && x <= '9') {
                 x = (Integer) (x - '0');
             } else if ('a' <= x && x <= 'f') {
