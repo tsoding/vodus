@@ -10,6 +10,7 @@ struct Video_Params
     Pixel32 background_colour;
     Pixel32 nickname_colour;
     Pixel32 text_colour;
+    int bitrate;
 };
 
 void print1(FILE *stream, Video_Params params);

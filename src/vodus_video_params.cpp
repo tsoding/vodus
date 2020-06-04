@@ -10,5 +10,6 @@ void print1(FILE *stream, Video_Params params)
     println(stream, "    .background_colour = ", params.background_colour, ",");
     println(stream, "    .nickname_colour = ", params.nickname_colour, ",");
     println(stream, "    .text_colour = ", params.text_colour, ",");
+    println(stream, "    .bitrate = ", params.bitrate, ",");
     print(stream, "}");
 }

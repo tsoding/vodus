@@ -293,6 +293,7 @@ int main(int argc, char *argv[])
     params.background_colour = {32, 32, 32, 255};
     params.nickname_colour   = {255, 100, 100, 255};
     params.text_colour       = {200, 200, 200, 255};
+    params.bitrate           = 400'000;
 
     for (int i = 1; i < argc;) {
         const auto arg = cstr_as_string_view(argv[i]);
@@ -307,17 +308,17 @@ int main(int argc, char *argv[])
 
 #define END_PARAMETER i += 2
 
-#define INTEGER_PARAMETER(variable)                                     \
-        do {                                                            \
-            BEGIN_PARAMETER(cstr);                                      \
-            auto maybe = cstr_as_string_view(cstr).as_integer<size_t>(); \
-            if (!maybe.has_value) {                                     \
-                println(stderr, "Error: `", arg, "` is not an integer"); \
-                usage(stderr);                                          \
-                exit(1);                                                \
-            }                                                           \
-            variable = maybe.unwrap;                                    \
-            END_PARAMETER;                                              \
+#define INTEGER_PARAMETER(type, variable)                                 \
+        do {                                                              \
+            BEGIN_PARAMETER(cstr);                                        \
+            auto maybe = cstr_as_string_view(cstr).as_integer<type>();    \
+            if (!maybe.has_value) {                                       \
+                println(stderr, "Error: `", cstr, "` is not an integer"); \
+                usage(stderr);                                            \
+                exit(1);                                                  \
+            }                                                             \
+            variable = maybe.unwrap;                                      \
+            END_PARAMETER;                                                \
         } while (0)
 
 #define CSTR_PARAMETER(variable)                \
@@ -348,21 +349,23 @@ int main(int argc, char *argv[])
         } else if (arg == "--output"_sv || arg == "-o"_sv) {
             CSTR_PARAMETER(output_filepath);
         } else if (arg == "--limit"_sv) {
-            INTEGER_PARAMETER(messages_limit);
+            INTEGER_PARAMETER(size_t, messages_limit);
         } else if (arg == "--width"_sv) {
-            INTEGER_PARAMETER(params.width);
+            INTEGER_PARAMETER(size_t, params.width);
         } else if (arg == "--height"_sv) {
-            INTEGER_PARAMETER(params.height);
+            INTEGER_PARAMETER(size_t, params.height);
         } else if (arg == "--fps"_sv) {
-            INTEGER_PARAMETER(params.fps);
+            INTEGER_PARAMETER(size_t, params.fps);
         } else if (arg == "--font-size"_sv) {
-            INTEGER_PARAMETER(params.font_size);
+            INTEGER_PARAMETER(size_t, params.font_size);
         } else if (arg == "--background-color"_sv) {
             COLOR_PARAMETER(params.background_colour);
         } else if (arg == "--nickname-color"_sv) {
             COLOR_PARAMETER(params.nickname_colour);
         } else if (arg == "--text-color"_sv) {
             COLOR_PARAMETER(params.text_colour);
+        } else if (arg == "--bitrate"_sv) {
+            INTEGER_PARAMETER(int, params.bitrate);
         } else {
             if (log_filepath != nullptr) {
                 println(stderr, "Error: Input log file is provided twice");
@@ -438,7 +441,7 @@ int main(int argc, char *argv[])
         "Could not allocate video codec context");
     defer(avcodec_free_context(&context));
 
-    context->bit_rate = 400'000;
+    context->bit_rate = params.bitrate;
     context->width = params.width;
     context->height = params.height;
     context->time_base = (AVRational){1, (int) params.fps};
