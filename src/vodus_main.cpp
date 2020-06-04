@@ -332,7 +332,7 @@ int main(int argc, char *argv[])
             BEGIN_PARAMETER(cstr);                                      \
             auto maybe = hexstr_as_pixel32(cstr_as_string_view(cstr));  \
             if (!maybe.has_value) {                                     \
-                println(stderr, "Error: `", arg, "` is not a hexstr of a color"); \
+                println(stderr, "Error: `", cstr, "` is not a hexstr of a color"); \
                 usage(stderr);                                          \
                 exit(1);                                                \
             }                                                           \
