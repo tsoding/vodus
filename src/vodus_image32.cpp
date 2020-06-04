@@ -9,6 +9,24 @@ struct Pixel32
     uint8_t r, g, b, a;
 };
 
+void print1(FILE *stream, Pixel32 pixel)
+{
+#define PRINT_BYTE(x)                               \
+    do {                                            \
+        const auto __x = (x);                       \
+        const auto __u = __x / 0x10;                \
+        const auto __l = __x % 0x10;                \
+        print(stream,                               \
+              (char) (__u + (__u <= 9 ? '0' : 'a' - 10)),         \
+              (char) (__l + (__l <= 9 ? '0' : 'a' - 10)));        \
+    } while (0)
+
+    PRINT_BYTE(pixel.r);
+    PRINT_BYTE(pixel.g);
+    PRINT_BYTE(pixel.b);
+    PRINT_BYTE(pixel.a);
+}
+
 struct Image32
 {
     size_t width;
