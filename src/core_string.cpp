@@ -154,6 +154,11 @@ struct String_View
         return memcmp(this->data, view.data, this->count) == 0;
     }
 
+    bool operator!=(String_View view) const
+    {
+        return !(*this == view);
+    }
+
     bool has_prefix(String_View prefix) const
     {
         return prefix.count <= this->count
@@ -239,4 +244,14 @@ String_View file_as_string_view(const char *filepath)
     result.data = buffer;
 
     return result;
+}
+
+// NOTE: stolen from http://www.cse.yorku.ca/~oz/hash.html
+unsigned long djb2(String_View str)
+{
+    unsigned long hash = 5381;
+    for (size_t i = 0; i < str.count; ++i) {
+        hash = ((hash << 5) + hash) + str.data[i];
+    }
+    return hash;
 }
