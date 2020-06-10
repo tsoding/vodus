@@ -1,9 +1,3 @@
-// TODO(#53): store all of the loaded images in Pixel for performance reason
-struct Pixel
-{
-    float r, g, b, a;
-};
-
 struct Pixel32
 {
     uint8_t r, g, b, a;
@@ -39,38 +33,20 @@ struct Image32
     }
 };
 
-Pixel pixel32_to_pixel(Pixel32 pixel)
-{
-    return Pixel {
-        ((float) pixel.r) / 255.0f,
-        ((float) pixel.g) / 255.0f,
-        ((float) pixel.b) / 255.0f,
-        ((float) pixel.a) / 255.0f
-    };
-}
-
-Pixel32 pixel_to_pixel32(Pixel pixel)
-{
-    return Pixel32 {
-        (uint8_t) floorf(pixel.r * 255.0f),
-        (uint8_t) floorf(pixel.g * 255.0f),
-        (uint8_t) floorf(pixel.b * 255.0f),
-        (uint8_t) floorf(pixel.a * 255.0f)
-    };
-}
-
 Pixel32 mix_pixels(Pixel32 b32, Pixel32 a32)
 {
-    const auto a = pixel32_to_pixel(a32);
-    const auto b = pixel32_to_pixel(b32);
+    const float a32_alpha = a32.a / 255.0;
+    const float b32_alpha = b32.a / 255.0;
+    const float r_alpha = a32_alpha + b32_alpha * (1.0f - a32_alpha);
 
-    Pixel r = {};
-    r.a = a.a + b.a * (1.0f - a.a);
-    r.r = (a.r * a.a + b.r * b.a * (1.0f - a.a)) / r.a;
-    r.g = (a.g * a.a + b.g * b.a * (1.0f - a.a)) / r.a;
-    r.b = (a.b * a.a + b.b * b.a * (1.0f - a.a)) / r.a;
+    Pixel32 r = {};
 
-    return pixel_to_pixel32(r);
+    r.r = (uint8_t) ((a32.r * a32_alpha + b32.r * b32_alpha * (1.0f - a32_alpha)) / r_alpha);
+    r.g = (uint8_t) ((a32.g * a32_alpha + b32.g * b32_alpha * (1.0f - a32_alpha)) / r_alpha);
+    r.b = (uint8_t) ((a32.b * a32_alpha + b32.b * b32_alpha * (1.0f - a32_alpha)) / r_alpha);
+    r.a = (uint8_t) (r_alpha * 255.0);
+
+    return r;
 }
 
 void fill_image32_with_color(Image32 image, Pixel32 color)
