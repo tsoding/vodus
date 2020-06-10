@@ -5,6 +5,13 @@ struct Maybe
     T unwrap;
 };
 
+#define ASSIGN_UNWRAP(place, maybe)               \
+    do {                                          \
+        auto __x = (maybe);                       \
+        if (!__x.has_value) return {};            \
+        (place) = __x.unwrap;                     \
+    } while (0)
+
 // TODO(#20): String_View does not support unicode
 struct String_View
 {
@@ -84,6 +91,28 @@ struct String_View
     }
 
     template <typename Integer>
+    Maybe<Integer> from_hex() const
+    {
+        Integer result = {};
+
+        for (size_t i = 0; i < count; ++i) {
+            Integer x = data[i];
+            if ('0' <= x && x <= '9') {
+                x = (Integer) (x - '0');
+            } else if ('a' <= x && x <= 'f') {
+                x = (Integer) (x - 'a' + 10);
+            } else if ('A' <= x && x <= 'F') {
+                x = (Integer) (x - 'A' + 10);
+            } else {
+                return {};
+            }
+            result = result * (Integer) 0x10 + x;
+        }
+
+        return {true, result};
+    }
+
+    template <typename Integer>
     Maybe<Integer> as_integer() const
     {
         Integer sign = 1;
@@ -108,6 +137,15 @@ struct String_View
         }
 
         return { true, number * sign };
+    }
+
+    String_View subview(size_t start, size_t count) const
+    {
+        if (start + count <= this->count) {
+            return {count, data + start};
+        }
+
+        return {};
     }
 };
 

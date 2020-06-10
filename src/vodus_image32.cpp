@@ -9,6 +9,24 @@ struct Pixel32
     uint8_t r, g, b, a;
 };
 
+void print1(FILE *stream, Pixel32 pixel)
+{
+#define PRINT_BYTE(x)                               \
+    do {                                            \
+        const auto __x = (x);                       \
+        const auto __u = __x / 0x10;                \
+        const auto __l = __x % 0x10;                \
+        print(stream,                               \
+              (char) (__u + (__u <= 9 ? '0' : 'a' - 10)),         \
+              (char) (__l + (__l <= 9 ? '0' : 'a' - 10)));        \
+    } while (0)
+
+    PRINT_BYTE(pixel.r);
+    PRINT_BYTE(pixel.g);
+    PRINT_BYTE(pixel.b);
+    PRINT_BYTE(pixel.a);
+}
+
 struct Image32
 {
     size_t width;
@@ -225,7 +243,7 @@ void slap_text_onto_image32_wrapped(Image32 surface,
                                     String_View text,
                                     Pixel32 color,
                                     int *pen_x, int *pen_y,
-                                    Video_Params params)
+                                    size_t font_size)
 {
     int copy_x = *pen_x;
     int copy_y = *pen_y;
@@ -233,7 +251,7 @@ void slap_text_onto_image32_wrapped(Image32 surface,
     advance_pen_for_text(face, text, &copy_x, &copy_y);
     if (copy_x >= (int)surface.width) {
         *pen_x = 0;
-        *pen_y += params.font_size;
+        *pen_y += font_size;
     }
 
     slap_text_onto_image32(surface, face, text, color, pen_x, pen_y);
@@ -244,14 +262,14 @@ void slap_text_onto_image32_wrapped(Image32 surface,
                                     const char *cstr,
                                     Pixel32 color,
                                     int *pen_x, int *pen_y,
-                                    Video_Params params)
+                                    size_t font_size)
 {
     slap_text_onto_image32_wrapped(surface,
                                    face,
                                    cstr_as_string_view(cstr),
                                    color,
                                    pen_x, pen_y,
-                                   params);
+                                   font_size);
 }
 
 void slap_text_onto_image32(Image32 surface,

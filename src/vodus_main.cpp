@@ -78,16 +78,16 @@ void render_message(Image32 surface, FT_Face face,
     slap_text_onto_image32_wrapped(surface,
                                    face,
                                    message.nickname,
-                                   {255, 0, 0, 255},
+                                   params.nickname_colour,
                                    x, y,
-                                   params);
+                                   params.font_size);
 
     slap_text_onto_image32_wrapped(surface,
                                    face,
                                    ": ",
-                                   {255, 0, 0, 255},
+                                   params.nickname_colour,
                                    x, y,
-                                   params);
+                                   params.font_size);
 
     auto text = message.message.trim();
     while (text.count > 0) {
@@ -115,17 +115,17 @@ void render_message(Image32 surface, FT_Face face,
             slap_text_onto_image32_wrapped(surface,
                                            face,
                                            word,
-                                           {0, 255, 0, 255},
+                                           params.text_colour,
                                            x, y,
-                                           params);
+                                           params.font_size);
         }
 
         slap_text_onto_image32_wrapped(surface,
                                        face,
                                        " ",
-                                       {0, 255, 0, 255},
+                                       params.text_colour,
                                        x, y,
-                                       params);
+                                       params.font_size);
     }
 }
 
@@ -135,7 +135,7 @@ bool render_log(Image32 surface, FT_Face face,
                 Emote_Cache *emote_cache,
                 Video_Params params)
 {
-    fill_image32_with_color(surface, {0, 0, 0, 255});
+    fill_image32_with_color(surface, params.background_colour);
     const int CHAT_PADDING = 0;
     int text_y = params.font_size + CHAT_PADDING;
     for (size_t i = message_begin; i < message_end; ++i) {
@@ -266,6 +266,18 @@ void usage(FILE *stream)
     println(stream, "    --limit <number>          Limit the amout of messages to render");
 }
 
+Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
+{
+    if (hexstr.count != 8) return {};
+
+    Pixel32 result = {};
+    ASSIGN_UNWRAP(result.r, hexstr.subview(0, 2).from_hex<uint8_t>());
+    ASSIGN_UNWRAP(result.g, hexstr.subview(2, 2).from_hex<uint8_t>());
+    ASSIGN_UNWRAP(result.b, hexstr.subview(4, 2).from_hex<uint8_t>());
+    ASSIGN_UNWRAP(result.a, hexstr.subview(6, 2).from_hex<uint8_t>());
+    return {true, result};
+}
+
 int main(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
@@ -273,16 +285,15 @@ int main(int argc, char *argv[])
     const char *output_filepath = nullptr;
     size_t messages_limit = VODUS_MESSAGES_CAPACITY;
 
-    const size_t VODUS_DEFAULT_FPS = 60;
-    const size_t VODUS_DEFAULT_WIDTH = 1920;
-    const size_t VODUS_DEFAULT_HEIGHT = 1080;
-    const size_t VODUS_DEFAULT_FONT_SIZE = 128;
-
     Video_Params params = {};
-    params.fps       = VODUS_DEFAULT_FPS;
-    params.width     = VODUS_DEFAULT_WIDTH;
-    params.height    = VODUS_DEFAULT_HEIGHT;
-    params.font_size = VODUS_DEFAULT_FONT_SIZE;
+    params.fps               = 60;
+    params.width             = 1920;
+    params.height            = 1080;
+    params.font_size         = 128;
+    params.background_colour = {32, 32, 32, 255};
+    params.nickname_colour   = {255, 100, 100, 255};
+    params.text_colour       = {200, 200, 200, 255};
+    params.bitrate           = 400'000;
 
     for (int i = 1; i < argc;) {
         const auto arg = cstr_as_string_view(argv[i]);
@@ -297,17 +308,17 @@ int main(int argc, char *argv[])
 
 #define END_PARAMETER i += 2
 
-#define INTEGER_PARAMETER(variable)                                     \
-        do {                                                            \
-            BEGIN_PARAMETER(cstr);                                      \
-            auto maybe = cstr_as_string_view(cstr).as_integer<size_t>(); \
-            if (!maybe.has_value) {                                     \
-                println(stderr, "Error: `", arg, "` is not an integer"); \
-                usage(stderr);                                          \
-                exit(1);                                                \
-            }                                                           \
-            variable = maybe.unwrap;                                    \
-            END_PARAMETER;                                              \
+#define INTEGER_PARAMETER(type, variable)                                 \
+        do {                                                              \
+            BEGIN_PARAMETER(cstr);                                        \
+            auto maybe = cstr_as_string_view(cstr).as_integer<type>();    \
+            if (!maybe.has_value) {                                       \
+                println(stderr, "Error: `", cstr, "` is not an integer"); \
+                usage(stderr);                                            \
+                exit(1);                                                  \
+            }                                                             \
+            variable = maybe.unwrap;                                      \
+            END_PARAMETER;                                                \
         } while (0)
 
 #define CSTR_PARAMETER(variable)                \
@@ -315,6 +326,19 @@ int main(int argc, char *argv[])
             BEGIN_PARAMETER(cstr);              \
             variable = cstr;                    \
             END_PARAMETER;                      \
+        } while (0)
+
+#define COLOR_PARAMETER(place)                                          \
+        do {                                                            \
+            BEGIN_PARAMETER(cstr);                                      \
+            auto maybe = hexstr_as_pixel32(cstr_as_string_view(cstr));  \
+            if (!maybe.has_value) {                                     \
+                println(stderr, "Error: `", cstr, "` is not a hexstr of a color"); \
+                usage(stderr);                                          \
+                exit(1);                                                \
+            }                                                           \
+            place = maybe.unwrap;                                       \
+            END_PARAMETER;                                              \
         } while (0)
 
         if (arg == "--help"_sv || arg == "-h"_sv)  {
@@ -325,15 +349,23 @@ int main(int argc, char *argv[])
         } else if (arg == "--output"_sv || arg == "-o"_sv) {
             CSTR_PARAMETER(output_filepath);
         } else if (arg == "--limit"_sv) {
-            INTEGER_PARAMETER(messages_limit);
+            INTEGER_PARAMETER(size_t, messages_limit);
         } else if (arg == "--width"_sv) {
-            INTEGER_PARAMETER(params.width);
+            INTEGER_PARAMETER(size_t, params.width);
         } else if (arg == "--height"_sv) {
-            INTEGER_PARAMETER(params.height);
+            INTEGER_PARAMETER(size_t, params.height);
         } else if (arg == "--fps"_sv) {
-            INTEGER_PARAMETER(params.fps);
+            INTEGER_PARAMETER(size_t, params.fps);
         } else if (arg == "--font-size"_sv) {
-            INTEGER_PARAMETER(params.font_size);
+            INTEGER_PARAMETER(size_t, params.font_size);
+        } else if (arg == "--background-color"_sv) {
+            COLOR_PARAMETER(params.background_colour);
+        } else if (arg == "--nickname-color"_sv) {
+            COLOR_PARAMETER(params.nickname_colour);
+        } else if (arg == "--text-color"_sv) {
+            COLOR_PARAMETER(params.text_colour);
+        } else if (arg == "--bitrate"_sv) {
+            INTEGER_PARAMETER(int, params.bitrate);
         } else {
             if (log_filepath != nullptr) {
                 println(stderr, "Error: Input log file is provided twice");
@@ -409,7 +441,7 @@ int main(int argc, char *argv[])
         "Could not allocate video codec context");
     defer(avcodec_free_context(&context));
 
-    context->bit_rate = 400'000;
+    context->bit_rate = params.bitrate;
     context->width = params.width;
     context->height = params.height;
     context->time_base = (AVRational){1, (int) params.fps};
