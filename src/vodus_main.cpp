@@ -383,7 +383,7 @@ int main(int argc, char *argv[])
             usage(stderr);
             exit(1);
         } else {
-            // TODO: multiple input log files support?
+            // TODO(#68): multiple input log files support?
             if (log_filepath != nullptr) {
                 println(stderr, "Error: Input log file is provided twice");
                 usage(stderr);
