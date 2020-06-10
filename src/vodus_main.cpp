@@ -82,14 +82,26 @@ void render_message(Image32 surface, FT_Face face,
                                    x, y,
                                    params.font_size);
 
+
+    auto text = message.message.trim();
+    auto text_colour = params.text_colour;
+    const char *nick_text_sep = ": ";
+
+    const auto slash_me = "/me"_sv;
+
+    if (text.has_prefix(slash_me)) {
+        text.chop(slash_me.count);
+        text_colour = params.nickname_colour;
+        nick_text_sep = " ";
+    }
+
     slap_text_onto_image32_wrapped(surface,
                                    face,
-                                   ": ",
+                                   nick_text_sep,
                                    params.nickname_colour,
                                    x, y,
                                    params.font_size);
 
-    auto text = message.message.trim();
     while (text.count > 0) {
         auto word = text.chop_word();
         auto maybe_emote = emote_cache->emote_by_name(word);
@@ -115,7 +127,7 @@ void render_message(Image32 surface, FT_Face face,
             slap_text_onto_image32_wrapped(surface,
                                            face,
                                            word,
-                                           params.text_colour,
+                                           text_colour,
                                            x, y,
                                            params.font_size);
         }
@@ -123,7 +135,7 @@ void render_message(Image32 surface, FT_Face face,
         slap_text_onto_image32_wrapped(surface,
                                        face,
                                        " ",
-                                       params.text_colour,
+                                       text_colour,
                                        x, y,
                                        params.font_size);
     }

@@ -147,6 +147,18 @@ struct String_View
 
         return {};
     }
+
+    bool operator==(String_View view) const
+    {
+        if (this->count != view.count) return false;
+        return memcmp(this->data, view.data, this->count) == 0;
+    }
+
+    bool has_prefix(String_View prefix) const
+    {
+        return prefix.count <= this->count
+            && this->subview(0, prefix.count) == prefix;
+    }
 };
 
 String_View cstr_as_string_view(const char *cstr)
@@ -173,12 +185,6 @@ String_View operator ""_sv (const char *data, size_t count)
 void print1(FILE *stream, String_View view)
 {
     fwrite(view.data, 1, view.count, stream);
-}
-
-bool operator==(String_View view1, String_View view2)
-{
-    if (view1.count != view2.count) return false;
-    return memcmp(view1.data, view2.data, view1.count) == 0;
 }
 
 String_View file_as_string_view(const char *filepath)
