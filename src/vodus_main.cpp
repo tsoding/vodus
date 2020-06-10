@@ -378,7 +378,12 @@ int main(int argc, char *argv[])
             COLOR_PARAMETER(params.text_colour);
         } else if (arg == "--bitrate"_sv) {
             INTEGER_PARAMETER(int, params.bitrate);
+        } else if (arg.has_prefix("-"_sv)) {
+            println(stderr, "Error: Unknown flag `", arg, "`");
+            usage(stderr);
+            exit(1);
         } else {
+            // TODO: multiple input log files support?
             if (log_filepath != nullptr) {
                 println(stderr, "Error: Input log file is provided twice");
                 usage(stderr);
