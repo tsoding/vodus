@@ -109,7 +109,8 @@ struct Emote
     }
 };
 
-const size_t EMOTE_MAPPING_CAPACITY = 1024;
+const size_t EMOTE_MAPPING_CAPACITY = 1021;
+const size_t EMOTE_GIFS_CAPACITY = EMOTE_MAPPING_CAPACITY;
 
 String_View file_extension(String_View filename)
 {
@@ -159,10 +160,13 @@ struct Emote_Cache
     Maybe<Emote> emote_by_name(String_View name,
                                const char *channel = nullptr)
     {
-        for (size_t i = 0; i < emote_mapping_count; ++i) {
-            if (emote_mapping[i].name == name) {
-                return {true, emote_mapping[i].emote};
-            }
+        size_t i = djb2(name) % EMOTE_MAPPING_CAPACITY;
+        while (emote_mapping[i].name != name && emote_mapping[i].name.count != 0) {
+            i = (i + 1) % EMOTE_MAPPING_CAPACITY;
+        }
+
+        if (emote_mapping[i].name.count != 0) {
+            return {true, emote_mapping[i].emote};
         }
 
         return {};
@@ -170,36 +174,41 @@ struct Emote_Cache
 
     void update_gifs(float delta_time)
     {
-        for (size_t i = 0; i < emote_mapping_count; ++i) {
-            if (emote_mapping[i].emote.type == Emote::Gif) {
-                emote_mapping[i].emote.gif.update(delta_time);
-            }
+        for (size_t i = 0; i < gifs_count; ++i) {
+            gifs[i]->update(delta_time);
         }
     }
 
     void populate_from_file(const char *mapping_filepath)
     {
         auto mapping_csv = file_as_string_view(mapping_filepath);
-        while (mapping_csv.count > 0) {
+        while (mapping_csv.count > 0 && emote_mapping_count < EMOTE_MAPPING_CAPACITY) {
             auto line = mapping_csv.chop_by_delim('\n');
             auto name = line.chop_by_delim(',');
             auto filename = line;
             auto ext = file_extension(filename);
 
+            size_t i = djb2(name) % EMOTE_MAPPING_CAPACITY;
+            while (emote_mapping[i].name.count != 0) {
+                i = (i + 1) % EMOTE_MAPPING_CAPACITY;
+            }
+
             if (ext == "gif"_sv) {
-                emote_mapping[emote_mapping_count].emote = load_gif_emote(filename);
+                emote_mapping[i].emote = load_gif_emote(filename);
+                gifs[gifs_count++] = &emote_mapping[i].emote.gif;
             } else if (ext == "png"_sv) {
-                emote_mapping[emote_mapping_count].emote = load_png_emote(filename);
+                emote_mapping[i].emote = load_png_emote(filename);
             } else {
                 println(stderr, filename, " has unsupported extension ", ext);
                 abort();
             }
-            emote_mapping[emote_mapping_count].name = name;
-
+            emote_mapping[i].name = name;
             emote_mapping_count += 1;
         }
     }
 
     Emote_Mapping emote_mapping[EMOTE_MAPPING_CAPACITY] = {};
     size_t emote_mapping_count = 0;
+    Gif_Animat *gifs[EMOTE_GIFS_CAPACITY] = {};
+    size_t gifs_count = 0;
 };
