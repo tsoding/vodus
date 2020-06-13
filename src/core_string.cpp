@@ -1,3 +1,5 @@
+#include <cctype>
+
 template <typename T>
 struct Maybe
 {
