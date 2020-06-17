@@ -65,15 +65,11 @@ void slap_ftbitmap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int
         if (row + y < dest.height) {
             for (size_t col = 0; (col < src->width); ++col) {
                 if (col + x < dest.width) {
-                    float a = src->buffer[row * src->pitch + col] / 255.0f;
-                    dest.pixels[(row + y) * dest.width + col + x].r =
-                        a * color.r + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].r;
-                    dest.pixels[(row + y) * dest.width + col + x].g =
-                        a * color.g + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].g;
-                    dest.pixels[(row + y) * dest.width + col + x].b =
-                        a * color.b + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].b;
-                    dest.pixels[(row + y) * dest.width + col + x].a =
-                        a * color.a + (1.0f - a) * dest.pixels[(row + y) * dest.width + col + x].a;
+                    color.a = src->buffer[row * src->pitch + col];
+                    dest.pixels[(row + y) * dest.width + col + x] =
+                        mix_pixels(
+                            dest.pixels[(row + y) * dest.width + col + x],
+                            color);
                 }
                 // TODO(#6): how do we mix alphas?
             }
