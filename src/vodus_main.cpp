@@ -229,7 +229,7 @@ struct Message_Entry_Buffer
     Queue<Message_Entry, Capacity> leaving;
 
     // TODO(#74): message entering/leaving animation should be disablable
-    // TODO: entering/leaving animation should also animate alpha
+    // TODO(#75): entering/leaving animation should also animate alpha
 
     void push(Message message)
     {
