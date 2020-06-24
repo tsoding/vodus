@@ -1,10 +1,10 @@
 VODUS_PKGS=freetype2 libavcodec libavutil
 VODUS_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb $(shell pkg-config --cflags $(VODUS_PKGS))
-VODUS_LIBS=$(shell pkg-config --libs $(VODUS_PKGS)) -lgif -lpthread
+VODUS_LIBS=$(shell pkg-config --libs $(VODUS_PKGS)) -lgif
 
-EMOTE_DOWNLOADER_PKGS=freetype2 libavcodec libavutil libcurl
+EMOTE_DOWNLOADER_PKGS=libcurl
 EMOTE_DOWNLOADER_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb $(shell pkg-config --cflags $(EMOTE_DOWNLOADER_PKGS))
-EMOTE_DOWNLOADER_LIBS=$(shell pkg-config --libs $(EMOTE_DOWNLOADER_PKGS)) -lgif
+EMOTE_DOWNLOADER_LIBS=$(shell pkg-config --libs $(EMOTE_DOWNLOADER_PKGS))
 
 .PHONY: all
 all: vodus.release vodus.debug emote_downloader Makefile
