@@ -65,8 +65,6 @@ struct Message
 Message messages[VODUS_MESSAGES_CAPACITY];
 size_t messages_size = 0;
 
-using Encode_Frame = std::function<void(Image32, int)>;
-
 void render_message(Image32 surface, FT_Face face,
                     Message message,
                     int *x, int *y,
@@ -159,8 +157,23 @@ bool render_log(Image32 surface, FT_Face face,
     return text_y > (int)surface.height;
 }
 
+struct Frame_Encoder
+{
+    AVFrame *frame;
+    AVCodecContext *context;
+    AVPacket *packet;
+    FILE *output_stream;
+
+    void encode_frame(Image32 surface, int frame_index)
+    {
+        slap_image32_onto_avframe(surface, frame);
+        frame->pts = frame_index;
+        encode_avframe(context, frame, packet, output_stream);
+    }
+};
+
 void sample_chat_log_animation(FT_Face face,
-                               Encode_Frame encode_frame,
+                               Frame_Encoder *encoder,
                                Emote_Cache *emote_cache,
                                Video_Params params)
 {
@@ -199,7 +212,7 @@ void sample_chat_log_animation(FT_Face face,
                message_begin < messages_size) {
             message_begin++;
         }
-        encode_frame(surface, frame_index);
+        encoder->encode_frame(surface, frame_index);
 
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
 
@@ -213,7 +226,7 @@ void sample_chat_log_animation(FT_Face face,
             message_begin++;
         }
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
-        encode_frame(surface, frame_index);
+        encoder->encode_frame(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
         print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
@@ -497,13 +510,6 @@ int main(int argc, char *argv[])
     avec(av_frame_get_buffer(frame, 32));
     // FFMPEG INIT STOP //////////////////////////////
 
-    auto encode_frame =
-        [frame, context, packet, output_stream](Image32 surface, int frame_index) {
-            slap_image32_onto_avframe(surface, frame);
-            frame->pts = frame_index;
-            encode_avframe(context, frame, packet, output_stream);
-        };
-
     // TODO(#35): log is not retrived directly from the Twitch API
     //   See https://github.com/PetterKraabol/Twitch-Chat-Downloader
     if (log_filepath == nullptr) {
@@ -526,7 +532,13 @@ int main(int argc, char *argv[])
                   return m1.timestamp < m2.timestamp;
               });
 
-    sample_chat_log_animation(face, encode_frame, &emote_cache, params);
+    Frame_Encoder encoder = {};
+    encoder.frame = frame;
+    encoder.context = context;
+    encoder.packet = packet;
+    encoder.output_stream = output_stream;
+
+    sample_chat_log_animation(face, &encoder, &emote_cache, params);
 
     encode_avframe(context, NULL, packet, output_stream);
 
