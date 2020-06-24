@@ -139,6 +139,33 @@ void render_message(Image32 surface, FT_Face face,
     }
 }
 
+struct Message_Entry
+{
+    Message message;
+    float a;
+
+    float render(Image32 surface,
+                 FT_Face face,
+                 Emote_Cache *emote_cache,
+                 Video_Params params,
+                 float y)
+    {
+        int pen_x = 0;
+        int pen_y = (int) floorf(y + params.font_size);
+        render_message(surface, face, message, &pen_x, &pen_y, emote_cache, params);
+        return pen_y - y;
+    }
+
+    float height(FT_Face face,
+                 Emote_Cache *emote_cache,
+                 Video_Params params)
+    {
+        Image32 fake_surface = {};
+        fake_surface.width = params.width;
+        return render(fake_surface, face, emote_cache, params, 0.0f);
+    }
+};
+
 bool render_log(Image32 surface, FT_Face face,
                 size_t message_begin,
                 size_t message_end,
@@ -172,6 +199,175 @@ struct Frame_Encoder
     }
 };
 
+template <typename T, size_t Capacity>
+struct Queue
+{
+    T items[Capacity];
+    size_t begin;
+    size_t count;
+
+    T &operator[](size_t index)
+    {
+        return items[(begin + index) % Capacity];
+    }
+
+    const T &operator[](size_t index) const
+    {
+        return items[(begin + index) % Capacity];
+    }
+
+    T &first()
+    {
+        assert(count > 0);
+        return items[begin];
+    }
+
+    void enqueue(T x)
+    {
+        assert(count < Capacity);
+        items[(begin + count) % Capacity] = x;
+        count++;
+    }
+
+    T dequeue()
+    {
+        assert(count > 0);
+        T result = items[begin];
+        begin = (begin + 1) % Capacity;
+        count--;
+        return result;
+    }
+};
+
+template <size_t Capacity>
+struct Message_Entry_Buffer
+{
+    Queue<Message_Entry, Capacity> entering;
+    Queue<Message_Entry, Capacity> active;
+    Queue<Message_Entry, Capacity> leaving;
+
+    void push(Message message)
+    {
+        Message_Entry entry = {};
+        entry.message = message;
+        entry.a = 0.0f;
+        entering.enqueue(entry);
+    }
+
+    void pop()
+    {
+        if (active.count > 0) {
+            auto entry = active.dequeue();
+            entry.a = 0.0f;
+            leaving.enqueue(entry);
+        }
+    }
+
+    void update(float dt)
+    {
+        const float ALPHA_VELOCITY = 1.0f / 0.1f;
+
+        for (size_t i = 0; i < entering.count; ++i) {
+            entering[i].a += ALPHA_VELOCITY * dt;
+        }
+
+        while (entering.count > 0 && entering.first().a >= 1.0f) {
+            auto entry = entering.dequeue();
+            active.enqueue(entry);
+        }
+
+        for (size_t i = 0; i < leaving.count; ++i) {
+            leaving[i].a += ALPHA_VELOCITY * dt;
+        }
+
+        while (leaving.count > 0 && leaving.first().a >= 1.0f) {
+            leaving.dequeue();
+        }
+    }
+
+    float render(Image32 surface,
+                 FT_Face face,
+                 Emote_Cache *emote_cache,
+                 Video_Params params)
+    {
+        float y = 0.0f;
+
+        for (size_t i = 0; i < leaving.count; ++i) {
+            auto &entry = leaving[i];
+            const float h = entry.height(face, emote_cache, params);
+            y -= h * entry.a;
+            entry.render(surface, face, emote_cache, params, y);
+            y += h;
+        }
+
+        for (size_t i = 0; i < active.count; ++i) {
+            auto &entry = active[i];
+            const float h = entry.render(surface, face, emote_cache, params, y);
+            y += h;
+        }
+
+        for (size_t i = 0; i < entering.count; ++i) {
+            auto &entry = entering[i];
+            const float h = entry.height(face, emote_cache, params);
+            y += h * (1.0f - entry.a);
+            entry.render(surface, face, emote_cache, params, y);
+            y += h;
+        }
+
+        return y;
+    }
+};
+
+Message_Entry_Buffer<1024> message_entry_buffer = {};
+
+void test_message_entry_rendering(FT_Face face,
+                                  Frame_Encoder *encoder,
+                                  Emote_Cache *emote_cache,
+                                  Video_Params params)
+{
+    Image32 surface = {
+        .width = params.width,
+        .height = params.height,
+        .pixels = new Pixel32[params.width * params.height]
+    };
+    defer(delete[] surface.pixels);
+
+    const float VODUS_DELTA_TIME_SEC = 1.0f / params.fps;
+    const float TEST_DURATION = 6.0f;
+    float t = 0;
+
+    const float MESSAGE_INTERVAL = 0.1f;
+    float message_cooldown = MESSAGE_INTERVAL;
+
+    float h = 0.0f;
+    for (size_t frame_index = 0; t <= TEST_DURATION; ++frame_index) {
+        if (message_cooldown <= 0.0f) {
+            Message message = {};
+            message.nickname = "Tsoding"_sv;
+            message.message = "SlavPls OPA Davai Davai SlavPls "_sv;
+            message_entry_buffer.push(message);
+
+            if (h >= params.height) {
+                message_entry_buffer.pop();
+            }
+            message_cooldown = MESSAGE_INTERVAL;
+        }
+
+        fill_image32_with_color(surface, params.background_colour);
+
+        h = message_entry_buffer.render(surface, face, emote_cache, params);
+
+        encoder->encode_frame(surface, frame_index);
+
+        t += VODUS_DELTA_TIME_SEC;
+        message_cooldown -= VODUS_DELTA_TIME_SEC;
+        emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
+        message_entry_buffer.update(VODUS_DELTA_TIME_SEC);
+
+        print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(TEST_DURATION), " seconds");
+    }
+}
+
 void sample_chat_log_animation(FT_Face face,
                                Frame_Encoder *encoder,
                                Emote_Cache *emote_cache,
@@ -196,8 +392,14 @@ void sample_chat_log_animation(FT_Face face,
     const size_t TRAILING_BUFFER_SEC = 2;
     assert(messages_size > 0);
     const float total_t = messages[messages_size - 1].timestamp + TRAILING_BUFFER_SEC;
+    float h = 0.0f;
     for (; message_end < messages_size; ++frame_index) {
         if (message_cooldown <= 0.0f) {
+            message_entry_buffer.push(messages[message_end]);
+            if (h >= params.height) {
+                message_entry_buffer.pop();
+            }
+
             message_end += 1;
             auto t1 = messages[message_end - 1].timestamp;
             auto t2 = messages[message_end].timestamp;
@@ -206,17 +408,14 @@ void sample_chat_log_animation(FT_Face face,
 
         message_cooldown -= VODUS_DELTA_TIME_SEC;
 
-        // TODO(#16): animate appearance of the message
-        // TODO(#33): scroll implementation simply rerenders frames until they fit the screen which might be slow
-        while (render_log(surface, face, message_begin, message_end, emote_cache, params) &&
-               message_begin < messages_size) {
-            message_begin++;
-        }
+        fill_image32_with_color(surface, params.background_colour);
+        h = message_entry_buffer.render(surface, face, emote_cache, params);
         encoder->encode_frame(surface, frame_index);
 
-        emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
-
         t += VODUS_DELTA_TIME_SEC;
+        emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
+        message_entry_buffer.update(VODUS_DELTA_TIME_SEC);
+
         print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
     }
 
@@ -539,6 +738,7 @@ int main(int argc, char *argv[])
     encoder.output_stream = output_stream;
 
     sample_chat_log_animation(face, &encoder, &emote_cache, params);
+    // test_message_entry_rendering(face, &encoder, &emote_cache, params);
 
     encode_avframe(context, NULL, packet, output_stream);
 
