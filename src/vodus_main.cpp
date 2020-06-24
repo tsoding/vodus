@@ -335,7 +335,7 @@ void sample_chat_log_animation(FT_Face face,
         if (message_cooldown <= 0.0f) {
             message_entry_buffer.push(messages[message_end]);
             if (h >= params.height) {
-                // TODO: messages are rendered sometimes outside of the windows
+                // TODO(#78): messages are rendered sometimes outside of the windows
                 //   Just render sample.txt to reproduce.
                 message_entry_buffer.pop();
             }
