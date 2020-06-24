@@ -250,7 +250,7 @@ struct Message_Entry_Buffer
 
     void update(float dt)
     {
-        // TODO: easing in/out for message entering/leaving animations
+        // TODO(#76): easing in/out for message entering/leaving animations
         // TODO: parameters of message entering/leaving animations should be customizable
         const float ALPHA_VELOCITY = 1.0f / 0.1f;
 
