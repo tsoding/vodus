@@ -423,7 +423,7 @@ String_View chop_nickname(String_View *input)
 
 void usage(FILE *stream)
 {
-    // TODO: usage output is outdated
+    // TODO(#79): usage output is outdated
     println(stream, "Usage: vodus [OPTIONS] <log-filepath>");
     println(stream, "    --help|-h                 Display this help and exit");
     println(stream, "    --output|-o <filepath>    Output path");
