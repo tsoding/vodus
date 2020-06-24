@@ -65,8 +65,6 @@ struct Message
 Message messages[VODUS_MESSAGES_CAPACITY];
 size_t messages_size = 0;
 
-using Encode_Frame = std::function<void(Image32, int)>;
-
 void render_message(Image32 surface, FT_Face face,
                     Message message,
                     int *x, int *y,
@@ -141,26 +139,176 @@ void render_message(Image32 surface, FT_Face face,
     }
 }
 
-bool render_log(Image32 surface, FT_Face face,
-                size_t message_begin,
-                size_t message_end,
-                Emote_Cache *emote_cache,
-                Video_Params params)
+struct Message_Entry
 {
-    fill_image32_with_color(surface, params.background_colour);
-    const int CHAT_PADDING = 0;
-    int text_y = params.font_size + CHAT_PADDING;
-    for (size_t i = message_begin; i < message_end; ++i) {
-        int text_x = 0;
+    Message message;
+    float a;
 
-        render_message(surface, face, messages[i], &text_x, &text_y, emote_cache, params);
-        text_y += params.font_size + CHAT_PADDING;
+    float render(Image32 surface,
+                 FT_Face face,
+                 Emote_Cache *emote_cache,
+                 Video_Params params,
+                 float y)
+    {
+        int pen_x = 0;
+        int pen_y = (int) floorf(y + params.font_size);
+        render_message(surface, face, message, &pen_x, &pen_y, emote_cache, params);
+        return pen_y - y;
     }
-    return text_y > (int)surface.height;
-}
+
+    float height(FT_Face face,
+                 Emote_Cache *emote_cache,
+                 Video_Params params)
+    {
+        Image32 fake_surface = {};
+        fake_surface.width = params.width;
+        return render(fake_surface, face, emote_cache, params, 0.0f);
+    }
+};
+
+struct Frame_Encoder
+{
+    AVFrame *frame;
+    AVCodecContext *context;
+    AVPacket *packet;
+    FILE *output_stream;
+
+    void encode_frame(Image32 surface, int frame_index)
+    {
+        slap_image32_onto_avframe(surface, frame);
+        frame->pts = frame_index;
+        encode_avframe(context, frame, packet, output_stream);
+    }
+};
+
+template <typename T, size_t Capacity>
+struct Queue
+{
+    T items[Capacity];
+    size_t begin;
+    size_t count;
+
+    T &operator[](size_t index)
+    {
+        return items[(begin + index) % Capacity];
+    }
+
+    const T &operator[](size_t index) const
+    {
+        return items[(begin + index) % Capacity];
+    }
+
+    T &first()
+    {
+        assert(count > 0);
+        return items[begin];
+    }
+
+    void enqueue(T x)
+    {
+        assert(count < Capacity);
+        items[(begin + count) % Capacity] = x;
+        count++;
+    }
+
+    T dequeue()
+    {
+        assert(count > 0);
+        T result = items[begin];
+        begin = (begin + 1) % Capacity;
+        count--;
+        return result;
+    }
+};
+
+template <size_t Capacity>
+struct Message_Entry_Buffer
+{
+    Queue<Message_Entry, Capacity> entering;
+    Queue<Message_Entry, Capacity> active;
+    Queue<Message_Entry, Capacity> leaving;
+
+    // TODO(#74): message entering/leaving animation should be disablable
+    // TODO(#75): entering/leaving animation should also animate alpha
+
+    void push(Message message)
+    {
+        Message_Entry entry = {};
+        entry.message = message;
+        entry.a = 0.0f;
+        entering.enqueue(entry);
+    }
+
+    void pop()
+    {
+        if (active.count > 0) {
+            auto entry = active.dequeue();
+            entry.a = 0.0f;
+            leaving.enqueue(entry);
+        }
+    }
+
+    void update(float dt)
+    {
+        // TODO(#76): easing in/out for message entering/leaving animations
+        // TODO(#77): parameters of message entering/leaving animations should be customizable
+        const float ALPHA_VELOCITY = 1.0f / 0.1f;
+
+        for (size_t i = 0; i < entering.count; ++i) {
+            entering[i].a += ALPHA_VELOCITY * dt;
+        }
+
+        while (entering.count > 0 && entering.first().a >= 1.0f) {
+            auto entry = entering.dequeue();
+            active.enqueue(entry);
+        }
+
+        for (size_t i = 0; i < leaving.count; ++i) {
+            leaving[i].a += ALPHA_VELOCITY * dt;
+        }
+
+        while (leaving.count > 0 && leaving.first().a >= 1.0f) {
+            leaving.dequeue();
+        }
+    }
+
+    float render(Image32 surface,
+                 FT_Face face,
+                 Emote_Cache *emote_cache,
+                 Video_Params params)
+    {
+        float y = 0.0f;
+
+        for (size_t i = 0; i < leaving.count; ++i) {
+            auto &entry = leaving[i];
+            const float h = entry.height(face, emote_cache, params);
+            y -= h * entry.a;
+            entry.render(surface, face, emote_cache, params, y);
+            y += h;
+        }
+
+        for (size_t i = 0; i < active.count; ++i) {
+            auto &entry = active[i];
+            const float h = entry.render(surface, face, emote_cache, params, y);
+            y += h;
+        }
+
+        for (size_t i = 0; i < entering.count; ++i) {
+            auto &entry = entering[i];
+            const float h = entry.height(face, emote_cache, params);
+            y += h * (1.0f - entry.a);
+            entry.render(surface, face, emote_cache, params, y);
+            y += h;
+        }
+
+        return y;
+    }
+};
+
+Message_Entry_Buffer<1024> message_entry_buffer = {};
 
 void sample_chat_log_animation(FT_Face face,
-                               Encode_Frame encode_frame,
+                               Frame_Encoder *encoder,
                                Emote_Cache *emote_cache,
                                Video_Params params)
 {
@@ -173,7 +321,6 @@ void sample_chat_log_animation(FT_Face face,
     };
     defer(delete[] surface.pixels);
 
-    size_t message_begin = 0;
     size_t message_end = 0;
     float message_cooldown = 0.0f;
     size_t frame_index = 0;
@@ -183,8 +330,16 @@ void sample_chat_log_animation(FT_Face face,
     const size_t TRAILING_BUFFER_SEC = 2;
     assert(messages_size > 0);
     const float total_t = messages[messages_size - 1].timestamp + TRAILING_BUFFER_SEC;
+    float h = 0.0f;
     for (; message_end < messages_size; ++frame_index) {
         if (message_cooldown <= 0.0f) {
+            message_entry_buffer.push(messages[message_end]);
+            if (h >= params.height) {
+                // TODO(#78): messages are rendered sometimes outside of the windows
+                //   Just render sample.txt to reproduce.
+                message_entry_buffer.pop();
+            }
+
             message_end += 1;
             auto t1 = messages[message_end - 1].timestamp;
             auto t2 = messages[message_end].timestamp;
@@ -193,27 +348,24 @@ void sample_chat_log_animation(FT_Face face,
 
         message_cooldown -= VODUS_DELTA_TIME_SEC;
 
-        // TODO(#16): animate appearance of the message
-        // TODO(#33): scroll implementation simply rerenders frames until they fit the screen which might be slow
-        while (render_log(surface, face, message_begin, message_end, emote_cache, params) &&
-               message_begin < messages_size) {
-            message_begin++;
-        }
-        encode_frame(surface, frame_index);
-
-        emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
+        fill_image32_with_color(surface, params.background_colour);
+        h = message_entry_buffer.render(surface, face, emote_cache, params);
+        encoder->encode_frame(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
+        emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
+        message_entry_buffer.update(VODUS_DELTA_TIME_SEC);
+
         print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
     }
 
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * params.fps; ++i, ++frame_index) {
-        while (render_log(surface, face, message_begin, message_end, emote_cache, params) &&
-               message_begin < messages_size) {
-            message_begin++;
-        }
+        fill_image32_with_color(surface, params.background_colour);
+        message_entry_buffer.render(surface, face, emote_cache, params);
+
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
-        encode_frame(surface, frame_index);
+        message_entry_buffer.update(VODUS_DELTA_TIME_SEC);
+        encoder->encode_frame(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
         print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
@@ -271,6 +423,7 @@ String_View chop_nickname(String_View *input)
 
 void usage(FILE *stream)
 {
+    // TODO(#79): usage output is outdated
     println(stream, "Usage: vodus [OPTIONS] <log-filepath>");
     println(stream, "    --help|-h                 Display this help and exit");
     println(stream, "    --output|-o <filepath>    Output path");
@@ -497,13 +650,6 @@ int main(int argc, char *argv[])
     avec(av_frame_get_buffer(frame, 32));
     // FFMPEG INIT STOP //////////////////////////////
 
-    auto encode_frame =
-        [frame, context, packet, output_stream](Image32 surface, int frame_index) {
-            slap_image32_onto_avframe(surface, frame);
-            frame->pts = frame_index;
-            encode_avframe(context, frame, packet, output_stream);
-        };
-
     // TODO(#35): log is not retrived directly from the Twitch API
     //   See https://github.com/PetterKraabol/Twitch-Chat-Downloader
     if (log_filepath == nullptr) {
@@ -526,7 +672,13 @@ int main(int argc, char *argv[])
                   return m1.timestamp < m2.timestamp;
               });
 
-    sample_chat_log_animation(face, encode_frame, &emote_cache, params);
+    Frame_Encoder encoder = {};
+    encoder.frame = frame;
+    encoder.context = context;
+    encoder.packet = packet;
+    encoder.output_stream = output_stream;
+
+    sample_chat_log_animation(face, &encoder, &emote_cache, params);
 
     encode_avframe(context, NULL, packet, output_stream);
 

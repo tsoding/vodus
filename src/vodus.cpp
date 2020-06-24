@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <cmath>
 
-#include <functional>
 #include <algorithm>
 
 #include <ft2build.h>
