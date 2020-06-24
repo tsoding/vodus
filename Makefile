@@ -1,20 +1,22 @@
-PKGS=freetype2 libavcodec libavutil libcurl
-CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb $(shell pkg-config --cflags $(PKGS))
-CXXFLAGS_RELEASE=$(CXXFLAGS) -O3
-CXXFLAGS_DEBUG=$(CXXFLAGS) -O0 -fno-builtin
-LIBS=$(shell pkg-config --libs $(PKGS)) -lgif -lpthread
+VODUS_PKGS=freetype2 libavcodec libavutil
+VODUS_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb $(shell pkg-config --cflags $(VODUS_PKGS))
+VODUS_LIBS=$(shell pkg-config --libs $(VODUS_PKGS)) -lgif -lpthread
+
+EMOTE_DOWNLOADER_PKGS=freetype2 libavcodec libavutil libcurl
+EMOTE_DOWNLOADER_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb $(shell pkg-config --cflags $(EMOTE_DOWNLOADER_PKGS))
+EMOTE_DOWNLOADER_LIBS=$(shell pkg-config --libs $(EMOTE_DOWNLOADER_PKGS)) -lgif
 
 .PHONY: all
 all: vodus.release vodus.debug emote_downloader Makefile
 
 vodus.release: $(wildcard src/vodus*.cpp) $(wildcard src/core*.cpp)
-	$(CXX) $(CXXFLAGS_RELEASE) -o vodus.release src/vodus.cpp $(LIBS)
+	$(CXX) $(VODUS_CXXFLAGS) -O3 -o vodus.release src/vodus.cpp $(VODUS_LIBS)
 
 vodus.debug: $(wildcard src/vodus*.cpp) $(wildcard src/core*.cpp)
-	$(CXX) $(CXXFLAGS_DEBUG) -o vodus.debug src/vodus.cpp $(LIBS)
+	$(CXX) $(VODUS_CXXFLAGS) -O0 -fno-builtin -o vodus.debug src/vodus.cpp $(VODUS_LIBS)
 
 emote_downloader: src/emote_downloader.cpp $(wildcard src/core*.cpp)
-	$(CXX) $(CXXFLAGS) -o emote_downloader src/emote_downloader.cpp $(LIBS)
+	$(CXX) $(EMOTE_DOWNLOADER_CXXFLAGS) -o emote_downloader src/emote_downloader.cpp $(EMOTE_DOWNLOADER_LIBS)
 
 .PHONY: render
 render: output.mpeg
