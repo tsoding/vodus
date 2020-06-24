@@ -166,24 +166,6 @@ struct Message_Entry
     }
 };
 
-bool render_log(Image32 surface, FT_Face face,
-                size_t message_begin,
-                size_t message_end,
-                Emote_Cache *emote_cache,
-                Video_Params params)
-{
-    fill_image32_with_color(surface, params.background_colour);
-    const int CHAT_PADDING = 0;
-    int text_y = params.font_size + CHAT_PADDING;
-    for (size_t i = message_begin; i < message_end; ++i) {
-        int text_x = 0;
-
-        render_message(surface, face, messages[i], &text_x, &text_y, emote_cache, params);
-        text_y += params.font_size + CHAT_PADDING;
-    }
-    return text_y > (int)surface.height;
-}
-
 struct Frame_Encoder
 {
     AVFrame *frame;
@@ -325,54 +307,6 @@ struct Message_Entry_Buffer
 
 Message_Entry_Buffer<1024> message_entry_buffer = {};
 
-void test_message_entry_rendering(FT_Face face,
-                                  Frame_Encoder *encoder,
-                                  Emote_Cache *emote_cache,
-                                  Video_Params params)
-{
-    Image32 surface = {
-        .width = params.width,
-        .height = params.height,
-        .pixels = new Pixel32[params.width * params.height]
-    };
-    defer(delete[] surface.pixels);
-
-    const float VODUS_DELTA_TIME_SEC = 1.0f / params.fps;
-    const float TEST_DURATION = 6.0f;
-    float t = 0;
-
-    const float MESSAGE_INTERVAL = 0.1f;
-    float message_cooldown = MESSAGE_INTERVAL;
-
-    float h = 0.0f;
-    for (size_t frame_index = 0; t <= TEST_DURATION; ++frame_index) {
-        if (message_cooldown <= 0.0f) {
-            Message message = {};
-            message.nickname = "Tsoding"_sv;
-            message.message = "SlavPls OPA Davai Davai SlavPls "_sv;
-            message_entry_buffer.push(message);
-
-            if (h >= params.height) {
-                message_entry_buffer.pop();
-            }
-            message_cooldown = MESSAGE_INTERVAL;
-        }
-
-        fill_image32_with_color(surface, params.background_colour);
-
-        h = message_entry_buffer.render(surface, face, emote_cache, params);
-
-        encoder->encode_frame(surface, frame_index);
-
-        t += VODUS_DELTA_TIME_SEC;
-        message_cooldown -= VODUS_DELTA_TIME_SEC;
-        emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
-        message_entry_buffer.update(VODUS_DELTA_TIME_SEC);
-
-        print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(TEST_DURATION), " seconds");
-    }
-}
-
 void sample_chat_log_animation(FT_Face face,
                                Frame_Encoder *encoder,
                                Emote_Cache *emote_cache,
@@ -387,7 +321,6 @@ void sample_chat_log_animation(FT_Face face,
     };
     defer(delete[] surface.pixels);
 
-    size_t message_begin = 0;
     size_t message_end = 0;
     float message_cooldown = 0.0f;
     size_t frame_index = 0;
@@ -427,11 +360,11 @@ void sample_chat_log_animation(FT_Face face,
     }
 
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * params.fps; ++i, ++frame_index) {
-        while (render_log(surface, face, message_begin, message_end, emote_cache, params) &&
-               message_begin < messages_size) {
-            message_begin++;
-        }
+        fill_image32_with_color(surface, params.background_colour);
+        message_entry_buffer.render(surface, face, emote_cache, params);
+
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
+        message_entry_buffer.update(VODUS_DELTA_TIME_SEC);
         encoder->encode_frame(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
@@ -746,7 +679,6 @@ int main(int argc, char *argv[])
     encoder.output_stream = output_stream;
 
     sample_chat_log_animation(face, &encoder, &emote_cache, params);
-    // test_message_entry_rendering(face, &encoder, &emote_cache, params);
 
     encode_avframe(context, NULL, packet, output_stream);
 
