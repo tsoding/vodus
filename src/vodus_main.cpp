@@ -269,6 +269,7 @@ struct Message_Entry_Buffer
     void update(float dt)
     {
         // TODO: easing in/out for message entering/leaving animations
+        // TODO: parameters of message entering/leaving animations should be customizable
         const float ALPHA_VELOCITY = 1.0f / 0.1f;
 
         for (size_t i = 0; i < entering.count; ++i) {
@@ -489,6 +490,7 @@ String_View chop_nickname(String_View *input)
 
 void usage(FILE *stream)
 {
+    // TODO: usage output is outdated
     println(stream, "Usage: vodus [OPTIONS] <log-filepath>");
     println(stream, "    --help|-h                 Display this help and exit");
     println(stream, "    --output|-o <filepath>    Output path");
