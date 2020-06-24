@@ -246,6 +246,9 @@ struct Message_Entry_Buffer
     Queue<Message_Entry, Capacity> active;
     Queue<Message_Entry, Capacity> leaving;
 
+    // TODO: message entering/leaving animation should be disablable
+    // TODO: entering/leaving animation should also animate alpha
+
     void push(Message message)
     {
         Message_Entry entry = {};
@@ -265,6 +268,7 @@ struct Message_Entry_Buffer
 
     void update(float dt)
     {
+        // TODO: easing in/out for message entering/leaving animations
         const float ALPHA_VELOCITY = 1.0f / 0.1f;
 
         for (size_t i = 0; i < entering.count; ++i) {
@@ -397,6 +401,8 @@ void sample_chat_log_animation(FT_Face face,
         if (message_cooldown <= 0.0f) {
             message_entry_buffer.push(messages[message_end]);
             if (h >= params.height) {
+                // TODO: messages are rendered sometimes outside of the windows
+                //   Just render sample.txt to reproduce.
                 message_entry_buffer.pop();
             }
 
