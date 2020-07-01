@@ -458,7 +458,18 @@ Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
     return {true, result};
 }
 
-int main(int argc, char *argv[])
+int main()
+{
+    void *iterator = NULL;
+    const AVCodec *codec = NULL;
+    println(stdout, "Probably available codecs:");
+    while ((codec = av_codec_iterate(&iterator))) {
+        println(stdout, "  ", codec->name);
+    }
+    return 0;
+}
+
+int main_(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
     const char *face_filepath = nullptr;
@@ -618,7 +629,8 @@ int main(int argc, char *argv[])
 
     // FFMPEG INIT START //////////////////////////////
     AVCodec *codec = fail_if_null(
-        avcodec_find_encoder(AV_CODEC_ID_MPEG2VIDEO),
+        // avcodec_find_encoder(AV_CODEC_ID_MPEG2VIDEO),
+        avcodec_find_encoder(AV_CODEC_ID_H263),
         "Codec not found");
 
     AVCodecContext *context = fail_if_null(
@@ -632,7 +644,7 @@ int main(int argc, char *argv[])
     context->time_base = (AVRational){1, (int) params.fps};
     context->framerate = (AVRational){(int) params.fps, 1};
     context->gop_size = 10;
-    context->max_b_frames = 1;
+    // context->max_b_frames = 1;
     context->pix_fmt = AV_PIX_FMT_YUV420P;
 
     AVPacket *packet = fail_if_null(
