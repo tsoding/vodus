@@ -1,6 +1,6 @@
-VODUS_PKGS=freetype2 libavcodec libavutil
-VODUS_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb `pkg-config --cflags $(VODUS_PKGS)`
-VODUS_LIBS=`pkg-config --libs $(VODUS_PKGS)` -lgif
+VODUS_PKGS=freetype2
+VODUS_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb `pkg-config --cflags $(VODUS_PKGS)` -I./third_party/ffmpeg-4.3-dist/usr/local/include/
+VODUS_LIBS=`pkg-config --libs $(VODUS_PKGS)` -lgif -L./third_party/ffmpeg-4.3-dist/usr/local/lib/ -pthread -lm -llzma -lz -lavcodec -lavutil -lswresample
 
 EMOTE_DOWNLOADER_PKGS=libcurl
 EMOTE_DOWNLOADER_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb `pkg-config --cflags $(EMOTE_DOWNLOADER_PKGS)`

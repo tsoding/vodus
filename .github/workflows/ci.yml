@@ -10,11 +10,12 @@ jobs:
       - name: install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -qq nasm
+          sudo apt-get install -qq nasm libfreetype6-dev libgif-dev
       - name: build third-party things
         run: |
           cd third_party
           ./build_third_party.sh
+          make -B vodus.debug
 
 
   build-linux-gcc:
@@ -24,7 +25,7 @@ jobs:
       - name: install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -qq libfreetype6-dev libgif-dev libpng-dev libavutil-dev libavcodec-dev libcurl4-openssl-dev
+          sudo apt-get install -qq libfreetype6-dev libgif-dev libavutil-dev libavcodec-dev libcurl4-openssl-dev
       - name: build the application
         run: |
           make -B
@@ -39,7 +40,7 @@ jobs:
       - name: install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -qq libfreetype6-dev libgif-dev libpng-dev libavutil-dev libavcodec-dev libcurl4-openssl-dev
+          sudo apt-get install -qq libfreetype6-dev libgif-dev libavutil-dev libavcodec-dev libcurl4-openssl-dev
       - name: build the application
         run: |
           make -B
