@@ -16,6 +16,7 @@ jobs:
         run: |
           make -B
         env:
+          CC: gcc
           CXX: g++
 
   build-linux-clang:
@@ -31,6 +32,7 @@ jobs:
           make -B
         env:
           CC: clang
+          CXX: clang++
 
 # TODO(#5): no MacOS build
 # TODO(#8): no Windows build
