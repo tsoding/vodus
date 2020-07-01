@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <cmath>
+#include <ctime>
 
 #include <algorithm>
 
