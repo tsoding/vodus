@@ -23,7 +23,7 @@ jobs:
           cd ..
       - name: build vodus
         run: |
-          make -B vodus.debug
+          make -B vodus.release vodus.debug
 
   build-linux-gcc:
     runs-on: ubuntu-18.04
