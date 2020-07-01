@@ -15,8 +15,14 @@ jobs:
         run: |
           cd third_party
           ./build_third_party.sh
+      - uses: actions/cache@v1
+        with:
+          # TODO: centralize ffmpeg version in the build
+          path: ./third_party/ffmpeg-4.3-dist/
+          key: ${{ runner.os }}-ffmpeg
+      - name: build vodus
+        run: |
           make -B vodus.debug
-
 
   build-linux-gcc:
     runs-on: ubuntu-18.04
