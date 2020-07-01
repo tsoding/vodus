@@ -3,6 +3,15 @@ on: [push, pull_request]
 
 jobs:
 # TODO(#4): Linux build doesn't render the video sample
+  test-third-party-build:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v1
+      - name: build third-party things
+        run: |
+          cd third_party
+          ./build_third_party.sh
+
 
   build-linux-gcc:
     runs-on: ubuntu-18.04
