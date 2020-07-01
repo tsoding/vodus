@@ -7,9 +7,9 @@ struct Video_Params
     size_t width;
     size_t height;
     size_t font_size;
-    Pixel32 background_colour;
-    Pixel32 nickname_colour;
-    Pixel32 text_colour;
+    Pixel32 background_color;
+    Pixel32 nickname_color;
+    Pixel32 text_color;
     int bitrate;
 };
 

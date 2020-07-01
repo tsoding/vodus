@@ -76,27 +76,27 @@ void render_message(Image32 surface, FT_Face face,
     slap_text_onto_image32_wrapped(surface,
                                    face,
                                    message.nickname,
-                                   params.nickname_colour,
+                                   params.nickname_color,
                                    x, y,
                                    params.font_size);
 
 
     auto text = message.message.trim();
-    auto text_colour = params.text_colour;
+    auto text_color = params.text_color;
     const char *nick_text_sep = ": ";
 
     const auto slash_me = "/me"_sv;
 
     if (text.has_prefix(slash_me)) {
         text.chop(slash_me.count);
-        text_colour = params.nickname_colour;
+        text_color = params.nickname_color;
         nick_text_sep = " ";
     }
 
     slap_text_onto_image32_wrapped(surface,
                                    face,
                                    nick_text_sep,
-                                   params.nickname_colour,
+                                   params.nickname_color,
                                    x, y,
                                    params.font_size);
 
@@ -125,7 +125,7 @@ void render_message(Image32 surface, FT_Face face,
             slap_text_onto_image32_wrapped(surface,
                                            face,
                                            word,
-                                           text_colour,
+                                           text_color,
                                            x, y,
                                            params.font_size);
         }
@@ -133,7 +133,7 @@ void render_message(Image32 surface, FT_Face face,
         slap_text_onto_image32_wrapped(surface,
                                        face,
                                        " ",
-                                       text_colour,
+                                       text_color,
                                        x, y,
                                        params.font_size);
     }
@@ -348,7 +348,7 @@ void sample_chat_log_animation(FT_Face face,
 
         message_cooldown -= VODUS_DELTA_TIME_SEC;
 
-        fill_image32_with_color(surface, params.background_colour);
+        fill_image32_with_color(surface, params.background_color);
         h = message_entry_buffer.render(surface, face, emote_cache, params);
         encoder->encode_frame(surface, frame_index);
 
@@ -360,7 +360,7 @@ void sample_chat_log_animation(FT_Face face,
     }
 
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * params.fps; ++i, ++frame_index) {
-        fill_image32_with_color(surface, params.background_colour);
+        fill_image32_with_color(surface, params.background_color);
         message_entry_buffer.render(surface, face, emote_cache, params);
 
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
@@ -425,10 +425,25 @@ void usage(FILE *stream)
 {
     // TODO(#79): usage output is outdated
     println(stream, "Usage: vodus [OPTIONS] <log-filepath>");
-    println(stream, "    --help|-h                 Display this help and exit");
-    println(stream, "    --output|-o <filepath>    Output path");
-    println(stream, "    --font <filepath>         Path to the Font face file");
-    println(stream, "    --limit <number>          Limit the amout of messages to render");
+    println(stream, "    --help|-h                       Display this help and exit");
+    println(stream, "    --output|-o <filepath>          Output path");
+    println(stream, "    --font <filepath>               Path to the Font face file");
+    println(stream, "    --font-size <number>            The size of the Font face");
+    println(stream, "    --limit <number>                Limit the amount of messages to render");
+    println(stream, "    --width <number>                Width of the output video");
+    println(stream, "    --height <number>               Height of the output video");
+    println(stream, "    --fps <number>                  Frames per second of the output video");
+    println(stream, "    --background-color <color-hex>  Color of the background");
+    println(stream, "    --nickname-color <color-hex>    Color of the nickname part of the rendered message");
+    println(stream, "    --text-color <color-hex>        Color of the text part of the rendered message");
+    println(stream, "    --bitrate <number>              The average bitrate in bits/s (probably, libavcodec\n"
+                    "                                    didn't really tell me the exact units)");
+    println(stream, "  Values:");
+    println(stream, "    <filepath>                      Path to a file according to the platform format");
+    println(stream, "    <number>                        Positive integer");
+    println(stream, "    <color-hex>                     8 hex characters digits describing RGBA.\n"
+                    "                                    Case insensitive. No leading # character.\n"
+                    "                                    Examples: ffffffff, 000000FF, A0eA0000");
 }
 
 Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
@@ -455,9 +470,9 @@ int main(int argc, char *argv[])
     params.width             = 1920;
     params.height            = 1080;
     params.font_size         = 128;
-    params.background_colour = {32, 32, 32, 255};
-    params.nickname_colour   = {255, 100, 100, 255};
-    params.text_colour       = {200, 200, 200, 255};
+    params.background_color = {32, 32, 32, 255};
+    params.nickname_color   = {255, 100, 100, 255};
+    params.text_color       = {200, 200, 200, 255};
     params.bitrate           = 400'000;
 
     for (int i = 1; i < argc;) {
@@ -524,11 +539,11 @@ int main(int argc, char *argv[])
         } else if (arg == "--font-size"_sv) {
             INTEGER_PARAMETER(size_t, params.font_size);
         } else if (arg == "--background-color"_sv) {
-            COLOR_PARAMETER(params.background_colour);
+            COLOR_PARAMETER(params.background_color);
         } else if (arg == "--nickname-color"_sv) {
-            COLOR_PARAMETER(params.nickname_colour);
+            COLOR_PARAMETER(params.nickname_color);
         } else if (arg == "--text-color"_sv) {
-            COLOR_PARAMETER(params.text_colour);
+            COLOR_PARAMETER(params.text_color);
         } else if (arg == "--bitrate"_sv) {
             INTEGER_PARAMETER(int, params.bitrate);
         } else if (arg.has_prefix("-"_sv)) {
