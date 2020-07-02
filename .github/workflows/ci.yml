@@ -24,6 +24,7 @@ jobs:
       - name: build vodus
         run: |
           make -B
+          ./vodus.debug
         env:
           CC: clang
           CXX: clang++

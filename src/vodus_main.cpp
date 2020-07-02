@@ -458,18 +458,20 @@ Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
     return {true, result};
 }
 
-int main_()
+int main()
 {
     void *iterator = NULL;
     const AVCodec *codec = NULL;
     println(stdout, "Probably available codecs:");
     while ((codec = av_codec_iterate(&iterator))) {
-        println(stdout, "  ", codec->name);
+        if (avcodec_find_encoder_by_name(codec->name)) {
+            println(stdout, "  ", codec->name);
+        }
     }
     return 0;
 }
 
-int main(int argc, char *argv[])
+int main_(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
     const char *face_filepath = nullptr;
