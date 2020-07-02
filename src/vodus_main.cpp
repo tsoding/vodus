@@ -631,8 +631,7 @@ int main(int argc, char *argv[])
 
     // FFMPEG INIT START //////////////////////////////
     AVCodec *codec = fail_if_null(
-        // avcodec_find_encoder(AV_CODEC_ID_MPEG2VIDEO),
-        avcodec_find_encoder(AV_CODEC_ID_H263),
+        avcodec_find_encoder(AV_CODEC_ID_MPEG2VIDEO),
         "Codec not found");
 
     AVCodecContext *context = fail_if_null(
