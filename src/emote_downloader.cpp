@@ -428,8 +428,8 @@ int main(void)
 
     append_bttv_mapping(curl, "https://api.betterttv.net/2/emotes", mapping, &downloads);
     append_bttv_mapping(curl, "https://api.betterttv.net/2/channels/tsoding", mapping, &downloads);
-    append_global_ffz_mapping(curl, mapping, &downloads);
-    append_room_ffz_mapping(curl, "https://api.frankerfacez.com/v1/room/tsoding", mapping, &downloads);
+    // append_global_ffz_mapping(curl, mapping, &downloads);
+    // append_room_ffz_mapping(curl, "https://api.frankerfacez.com/v1/room/tsoding", mapping, &downloads);
 
     size_t transfers = 0;
     for (transfers = 0; transfers < min(downloads.size, MAX_PARALLEL); ++transfers) {
