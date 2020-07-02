@@ -20,7 +20,7 @@ struct Gif_Animat
             index = (index + 1) % file->ImageCount;
             int ok = DGifSavedExtensionToGCB(file, index, &gcb);
             if (!ok) {
-                println(stdout, "[ERROR] Could not retrieve Graphics Control Block from `", file_path, "`");
+                println(stderr, "[ERROR] Could not retrieve Graphics Control Block from `", file_path, "`");
                 abort();
             }
             delay_time = gcb.DelayTime + delay_time;
