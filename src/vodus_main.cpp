@@ -458,7 +458,7 @@ Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
     return {true, result};
 }
 
-int main()
+int main_()
 {
     void *iterator = NULL;
     const AVCodec *codec = NULL;
@@ -471,7 +471,7 @@ int main()
     return 0;
 }
 
-int main_(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
     const char *face_filepath = nullptr;
