@@ -25,6 +25,7 @@ jobs:
         run: |
           make -B
           ./emote_downloader
+          cat mapping.csv
           make render
         env:
           CC: clang
