@@ -24,7 +24,8 @@ jobs:
       - name: build vodus
         run: |
           make -B
-          ./vodus.debug
+          ./emote_downloader
+          make render
         env:
           CC: clang
           CXX: clang++
