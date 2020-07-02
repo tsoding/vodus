@@ -24,8 +24,9 @@ jobs:
       - name: build vodus
         run: |
           make -B
-        CC: gcc
-        CXX: g++
+        env:
+          CC: gcc
+          CXX: g++
 
   build-linux-gcc:
     runs-on: ubuntu-18.04
