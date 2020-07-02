@@ -10,12 +10,14 @@ jobs:
       - name: install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -qq nasm libfreetype6-dev libgif-dev libcurl4-openssl-dev
+          sudo apt-get install -qq nasm libfreetype6-dev libcurl4-openssl-dev
       - uses: actions/cache@v1
         with:
-          # TODO: centralize ffmpeg version in the build
-          path: ./third_party/ffmpeg-4.3-dist/
-          key: ${{ runner.os }}-ffmpeg
+          # TODO: centralize third party versions in the build
+          path: |
+            ./third_party/ffmpeg-4.3-dist/
+            ./third_party/giflib-5.2.1-dist/
+          key: ${{ runner.os }}-ffmpeg-4.3-giflib-5.2.1
       - name: build third-party things
         run: |
           cd third_party
