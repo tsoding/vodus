@@ -10,7 +10,7 @@ jobs:
       - name: install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -qq nasm libfreetype6-dev libgif-dev libcurl4-openssl-dev
+          sudo apt-get install -qq nasm libfreetype6-dev libgif-dev libavutil-dev libavcodec-dev libcurl4-openssl-dev
       - uses: actions/cache@v1
         with:
           # TODO: centralize ffmpeg version in the build
