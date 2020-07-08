@@ -13,7 +13,7 @@ jobs:
           sudo apt-get install -qq nasm libfreetype6-dev libcurl4-openssl-dev
       - uses: actions/cache@v2
         with:
-          # TODO: centralize third party versions in the build
+          # TODO(#84): centralize third party versions in the build
           path: |
             ./third_party/ffmpeg-4.3-dist/
             ./third_party/giflib-5.2.1-dist/
@@ -46,7 +46,6 @@ jobs:
           sudo apt-get install -qq nasm libfreetype6-dev libcurl4-openssl-dev
       - uses: actions/cache@v2
         with:
-          # TODO: centralize third party versions in the build
           path: |
             ./third_party/ffmpeg-4.3-dist/
             ./third_party/giflib-5.2.1-dist/
