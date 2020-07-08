@@ -10,14 +10,44 @@ changed at any moment or stop working at all.**
 
 ## Quick Start
 
+### Install Dependencies
+
+#### Debian
+
 ```console
-$ # Install Dependencies
-$ ## Debian
-$ sudo apt-get install libfreetype6-dev libgif-dev libavutil-dev libavcodec-dev libcurl4-openssl-dev
-$ ## NixOS
+$ sudo apt-get install nasm libfreetype6-dev libcurl4-openssl-dev
+```
+
+#### NixOS
+
+```console
 $ nix-shell
-$ ## (add your distro here)
-$ # Build
-$ make            # build vodus executable
-$ make render     # test rendering (produces output.mpeg file)
+```
+
+### Build Third Party dependencies
+
+Needs to be done only once.
+
+``` console
+$ cd third_party/
+$ ./build_third_party.sh
+$ cd ..
+```
+
+### Build the Project
+
+```console
+$ make
+```
+
+### Download Emotes
+
+```console
+$ ./emote_downloader
+```
+
+### Render the Sample Video
+
+```console
+$ make render
 ```
