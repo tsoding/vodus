@@ -32,6 +32,10 @@ jobs:
         env:
           CC: clang
           CXX: clang++
+      - uses: actions/upload-artifact@v2
+        with:
+          name: output.mpeg
+          path: ./output.mpeg
 
   build-linux-gcc:
     runs-on: ubuntu-18.04
