@@ -11,7 +11,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -qq nasm libfreetype6-dev libcurl4-openssl-dev
-      - uses: actions/cache@v1
+      - uses: actions/cache@v2
         with:
           # TODO: centralize third party versions in the build
           path: |
