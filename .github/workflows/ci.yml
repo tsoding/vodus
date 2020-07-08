@@ -2,8 +2,6 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-# TODO(#4): Linux build doesn't render the video sample
-
   build-linux-gcc:
     runs-on: ubuntu-18.04
     steps:
@@ -11,13 +9,31 @@ jobs:
       - name: install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -qq libfreetype6-dev libgif-dev libpng-dev libavutil-dev libavcodec-dev libcurl4-openssl-dev
-      - name: build the application
+          sudo apt-get install -qq nasm libfreetype6-dev libcurl4-openssl-dev
+      - uses: actions/cache@v2
+        with:
+          # TODO(#84): centralize third party versions in the build
+          path: |
+            ./third_party/ffmpeg-4.3-dist/
+            ./third_party/giflib-5.2.1-dist/
+          key: ${{ runner.os }}-ffmpeg-4.3-giflib-5.2.1
+      - name: build third-party things
+        run: |
+          cd third_party
+          ./build_third_party.sh
+          cd ..
+      - name: build vodus
         run: |
           make -B
+          ./emote_downloader
+          make render
         env:
           CC: gcc
           CXX: g++
+      - uses: actions/upload-artifact@v2
+        with:
+          name: output.mpeg
+          path: ./output.mpeg
 
   build-linux-clang:
     runs-on: ubuntu-18.04
@@ -26,13 +42,30 @@ jobs:
       - name: install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -qq libfreetype6-dev libgif-dev libpng-dev libavutil-dev libavcodec-dev libcurl4-openssl-dev
-      - name: build the application
+          sudo apt-get install -qq nasm libfreetype6-dev libcurl4-openssl-dev
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ./third_party/ffmpeg-4.3-dist/
+            ./third_party/giflib-5.2.1-dist/
+          key: ${{ runner.os }}-ffmpeg-4.3-giflib-5.2.1
+      - name: build third-party things
+        run: |
+          cd third_party
+          ./build_third_party.sh
+          cd ..
+      - name: build vodus
         run: |
           make -B
+          ./emote_downloader
+          make render
         env:
           CC: clang
           CXX: clang++
+      - uses: actions/upload-artifact@v2
+        with:
+          name: output.mpeg
+          path: ./output.mpeg
 
 # TODO(#5): no MacOS build
 # TODO(#8): no Windows build

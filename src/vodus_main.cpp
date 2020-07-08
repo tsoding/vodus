@@ -458,6 +458,19 @@ Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
     return {true, result};
 }
 
+int main_()
+{
+    void *iterator = NULL;
+    const AVCodec *codec = NULL;
+    println(stdout, "Probably available codecs:");
+    while ((codec = av_codec_iterate(&iterator))) {
+        if (avcodec_find_encoder_by_name(codec->name)) {
+            println(stdout, "  ", codec->name);
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
@@ -632,7 +645,7 @@ int main(int argc, char *argv[])
     context->time_base = (AVRational){1, (int) params.fps};
     context->framerate = (AVRational){(int) params.fps, 1};
     context->gop_size = 10;
-    context->max_b_frames = 1;
+    // context->max_b_frames = 1;
     context->pix_fmt = AV_PIX_FMT_YUV420P;
 
     AVPacket *packet = fail_if_null(

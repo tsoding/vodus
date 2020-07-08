@@ -34,7 +34,7 @@ struct Fixed_Array
     }
 };
 
-const size_t DEFAULT_STRING_BUFFER_CAPACITY = 20 * 1024;
+const size_t DEFAULT_STRING_BUFFER_CAPACITY = 20 * 1024 * 1024;
 
 template <size_t Capacity = DEFAULT_STRING_BUFFER_CAPACITY>
 struct String_Buffer

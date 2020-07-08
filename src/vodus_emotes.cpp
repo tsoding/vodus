@@ -1,5 +1,6 @@
 struct Gif_Animat
 {
+    String_View file_path;
     GifFileType *file;
     size_t index;
     GraphicsControlBlock gcb;
@@ -18,7 +19,10 @@ struct Gif_Animat
         while (delay_time <= 0.0f) {
             index = (index + 1) % file->ImageCount;
             int ok = DGifSavedExtensionToGCB(file, index, &gcb);
-            assert(ok);
+            if (!ok) {
+                println(stderr, "[ERROR] Could not retrieve Graphics Control Block from `", file_path, "`");
+                abort();
+            }
             delay_time = gcb.DelayTime + delay_time;
         }
     }
@@ -121,17 +125,18 @@ String_View file_extension(String_View filename)
     return ext;
 }
 
-Emote load_gif_emote(String_View filepath)
+Emote load_gif_emote(String_View file_path)
 {
     Emote emote = {Emote::Gif};
 
-    auto filepath_cstr = string_view_as_cstr(filepath);
-    defer(delete[] filepath_cstr);
+    auto file_path_cstr = string_view_as_cstr(file_path);
+    defer(delete[] file_path_cstr);
 
     int error = 0;
-    emote.gif.file = DGifOpenFileName(filepath_cstr, &error);
+    emote.gif.file_path = file_path;
+    emote.gif.file = DGifOpenFileName(file_path_cstr, &error);
     if (error) {
-        println(stderr, "Could not read gif file: ", filepath);
+        println(stderr, "Could not read gif file: ", file_path);
         exit(1);
     }
     assert(error == 0);
