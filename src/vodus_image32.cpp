@@ -33,6 +33,13 @@ struct Image32
     }
 };
 
+struct Animat32
+{
+    Image32 *frames;
+    int *frame_delays;
+    size_t count;
+};
+
 // NOTE: Stolen from https://stackoverflow.com/a/53707227
 void mix_pixels_sse(Pixel32 *src, Pixel32 *dst, Pixel32 *c)
 {
@@ -153,11 +160,13 @@ void slap_ftbitmap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int
 void slap_image32_onto_image32(Image32 dst, Image32 src,
                                int x0, int y0)
 {
+    const size_t SIMD_PIXEL_PACK_SIZE = 4;
+
     size_t x1 = std::min(x0 + src.width, dst.width);
     size_t y1 = std::min(y0 + src.height, dst.height);
 
     for (size_t y = y0; y < y1; ++y) {
-        for (size_t x = x0; x < x1; ++x) {
+        for (size_t x = x0; x < x1; x += SIMD_PIXEL_PACK_SIZE) {
             assert(x >= 0);
             assert(y >= 0);
             assert(x < dst.width);
@@ -168,19 +177,23 @@ void slap_image32_onto_image32(Image32 dst, Image32 src,
             assert(x - x0 < src.width);
             assert(y - y0 < src.height);
 
-            dst.pixels[y * dst.width + x] =
-                mix_pixels(
-                    dst.pixels[y * dst.width + x],
-                    src.pixels[(y - y0) * src.width + (x - x0)]);
+            mix_pixels_sse(
+                &src.pixels[(y - y0) * src.width + (x - x0)],
+                &dst.pixels[y * dst.width + x],
+                &dst.pixels[y * dst.width + x]);
+
+            // dst.pixels[y * dst.width + x] =
+            //     mix_pixels(
+            //         dst.pixels[y * dst.width + x],
+            //         src.pixels[(y - y0) * src.width + (x - x0)]);
         }
     }
 }
 
-void slap_savedimage_onto_image32(Image32 dest,
-                                  SavedImage *src,
-                                  ColorMapObject *SColorMap,
-                                  GraphicsControlBlock gcb,
-                                  int x, int y)
+Image32 load_image32_from_savedimage(SavedImage *src,
+                                     ColorMapObject *SColorMap,
+                                     GraphicsControlBlock gcb,
+                                     size_t size)
 {
     assert(SColorMap);
     assert(SColorMap->BitsPerPixel <= 8);
@@ -189,55 +202,91 @@ void slap_savedimage_onto_image32(Image32 dest,
     assert(src->ImageDesc.Left == 0);
     assert(src->ImageDesc.Top == 0);
 
-    for (size_t row = 0; ((int) row < src->ImageDesc.Height); ++row) {
-        if (row + y < dest.height) {
-            for (size_t col = 0; ((int) col < src->ImageDesc.Width); ++col) {
-                if (col + x < dest.width) {
-                    auto index = src->RasterBits[row * src->ImageDesc.Width + col];
-                    if (index != gcb.TransparentColor) {
-                        auto pixel = SColorMap->Colors[index];
-                        dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
-                        dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
-                        dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
-                    }
-                }
+    Image32 origin = {};
+    origin.width = src->ImageDesc.Width;
+    origin.height = src->ImageDesc.Height;
+    origin.pixels = new Pixel32[origin.width * origin.height];
+    defer(delete[] origin.pixels);
+
+    for (size_t y = 0; y < origin.height; ++y) {
+        for (size_t x = 0; x < origin.width; ++x) {
+            auto index = src->RasterBits[y * origin.width + x];
+            auto pixel = SColorMap->Colors[index];
+            if (index != gcb.TransparentColor) {
+                origin.pixels[y * origin.width + x].r = pixel.Red;
+                origin.pixels[y * origin.width + x].g = pixel.Green;
+                origin.pixels[y * origin.width + x].b = pixel.Blue;
+                origin.pixels[y * origin.width + x].a = 255;
+            } else {
+                origin.pixels[y * origin.width + x] = {};
             }
         }
     }
+
+    const float emote_ratio = (float) origin.width / (float) origin.height;
+    Image32 result = {};
+    result.height = (int) size;
+    result.width = (int) floorf(result.height * emote_ratio);
+    result.pixels = new Pixel32[result.width * result.height];
+
+    stbir_resize_uint8((unsigned char *) origin.pixels, origin.width, origin.height, 0,
+                       (unsigned char *) result.pixels, result.width, result.height, 0,
+                       4);
+
+    return result;
 }
 
-void slap_savedimage_onto_image32(Image32 dest,
-                                  SavedImage *src,
-                                  ColorMapObject *SColorMap,
-                                  GraphicsControlBlock gcb,
-                                  int x, int y,
-                                  int target_width, int target_height)
+Animat32 load_animat32_from_gif(const char *filepath, size_t size)
 {
-    assert(SColorMap);
-    assert(SColorMap->BitsPerPixel <= 8);
-    assert(!SColorMap->SortFlag);
-    assert(src);
-    assert(src->ImageDesc.Left == 0);
-    assert(src->ImageDesc.Top == 0);
+    int error = 0;
+    GifFileType *gif_file = DGifOpenFileName(filepath, &error);
+    if (error) {
+        println(stderr, "[ERROR] Could not read gif file: ", filepath);
+        abort();
+    }
 
-    for (size_t row = 0; ((int) row < target_height); ++row) {
-        if (row + y < dest.height) {
-            for (size_t col = 0; ((int) col < target_width); ++col) {
-                if (col + x < dest.width) {
-                    int src_row = floorf((float) row / target_height * src->ImageDesc.Height);
-                    int src_col = floorf((float) col / target_width * src->ImageDesc.Width);
+    if (DGifSlurp(gif_file) == GIF_ERROR) {
+        println(stderr, "[ERROR] Could not read gif file: ", filepath);
+        abort();
+    }
 
-                    auto index = src->RasterBits[src_row * src->ImageDesc.Width + src_col];
-                    if (index != gcb.TransparentColor) {
-                        auto pixel = SColorMap->Colors[index];
-                        dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
-                        dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
-                        dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
-                    }
-                }
-            }
+    GraphicsControlBlock gcb = {};
+
+    Animat32 result = {};
+    result.count = gif_file->ImageCount;
+    result.frames = new Image32[result.count];
+    result.frame_delays = new int[result.count];
+
+    for (size_t index = 0; index < result.count; ++index) {
+        int ok = DGifSavedExtensionToGCB(gif_file, index, &gcb);
+        if (!ok) {
+            println(stderr, "[ERROR] Could not retrieve Graphics Control Block from `",
+                    filepath, "` on index ", index);
+            abort();
+        }
+
+        result.frame_delays[index] = gcb.DelayTime;
+
+        // TODO: does not work on some gifs
+        if (gif_file->SavedImages[index].ImageDesc.Left == 0 &&
+            gif_file->SavedImages[index].ImageDesc.Top == 0) {
+            result.frames[index] = load_image32_from_savedimage(
+                &gif_file->SavedImages[index],
+                gif_file->SColorMap,
+                gcb,
+                size);
+        } else {
+            // println(stderr, filepath);
         }
     }
+
+    DGifCloseFile(gif_file, &error);
+    if (error) {
+        println(stderr, "[ERROR] Could not close gif file: ", filepath);
+        abort();
+    }
+
+    return result;
 }
 
 Image32 load_image32_from_png(const char *filepath, size_t size)

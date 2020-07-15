@@ -108,19 +108,13 @@ void render_message(Image32 surface, FT_Face face,
         if (maybe_emote.has_value) {
             auto emote = maybe_emote.unwrap;
 
-            const float emote_ratio = (float) emote.width() / emote.height();
-            const int emote_height = params.font_size;
-            const int emote_width = floorf(emote_height * emote_ratio);
-
-            if (*x + emote_width >= (int)surface.width) {
+            if (*x + emote.width() >= (int)surface.width) {
                 *x = 0;
                 *y += params.font_size;
             }
 
-            emote.slap_onto_image32(surface,
-                                    *x, *y - emote_height,
-                                    emote_width, emote_height);
-            *x += emote_width;
+            emote.slap_onto_image32(surface, *x, *y - emote.height());
+            *x += emote.width();
         } else {
             slap_text_onto_image32_wrapped(surface,
                                            face,

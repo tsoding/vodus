@@ -1,64 +1,41 @@
 struct Gif_Animat
 {
     String_View file_path;
-    GifFileType *file;
+    Animat32 animat;
     size_t index;
-    GraphicsControlBlock gcb;
     float delay_time;
 
     bool is_null() const
     {
-        return file == nullptr;
+        return animat.count == 0;
     }
 
     void update(float dt)
     {
-        if (is_null()) return;
-
-        delay_time -= dt * 100;
-        while (delay_time <= 0.0f) {
-            index = (index + 1) % file->ImageCount;
-            int ok = DGifSavedExtensionToGCB(file, index, &gcb);
-            if (!ok) {
-                println(stderr, "[ERROR] Could not retrieve Graphics Control Block from `", file_path, "`");
-                abort();
+        if (!is_null()) {
+            delay_time -= dt * 100;
+            while (delay_time <= 0.0f) {
+                index = (index + 1) % animat.count;
+                delay_time = animat.frame_delays[index] + delay_time;
             }
-            delay_time = gcb.DelayTime + delay_time;
         }
     }
 
     void slap_onto_image32(Image32 surface, int x, int y)
     {
-        if (is_null()) return;
-
-        slap_savedimage_onto_image32(
-                surface,
-                &file->SavedImages[index],
-                file->SColorMap,
-                gcb,
-                x, y);
-    }
-
-    void slap_onto_image32(Image32 surface, int x, int y, int w, int h)
-    {
-        if (is_null()) return;
-        slap_savedimage_onto_image32(
-                surface,
-                &file->SavedImages[index],
-                file->SColorMap,
-                gcb,
-                x, y,
-                w, h);
+        if (!is_null()) {
+            slap_image32_onto_image32(surface, animat.frames[index], x, y);
+        }
     }
 
     int width() const
     {
-        return is_null() ? 0 : file->SavedImages[index].ImageDesc.Width;
+        return is_null() ? 0 : animat.frames[index].width;
     }
 
     int height() const
     {
-        return is_null() ? 0 : file->SavedImages[index].ImageDesc.Height;
+        return is_null() ? 0 : animat.frames[index].height;
     }
 };
 
@@ -98,7 +75,7 @@ struct Emote
         return 0;
     }
 
-    void slap_onto_image32(Image32 surface, int x, int y, int w, int h)
+    void slap_onto_image32(Image32 surface, int x, int y)
     {
         switch (type) {
         case Png: {
@@ -106,7 +83,7 @@ struct Emote
         } return;
 
         case Gif: {
-            gif.slap_onto_image32(surface, x, y, w, h);
+            gif.slap_onto_image32(surface, x, y);
         } return;
         }
         assert(!"Incorrect Emote_Type value");
@@ -142,15 +119,8 @@ Emote load_gif_emote(String_View file_path, size_t size)
     assert(file_path_cstr);
     defer(free((void*) file_path_cstr));
 
-    int error = 0;
+    emote.gif.animat = load_animat32_from_gif(file_path_cstr, size);
     emote.gif.file_path = file_path;
-    emote.gif.file = DGifOpenFileName(file_path_cstr, &error);
-    if (error) {
-        println(stderr, "Could not read gif file: ", file_path);
-        exit(1);
-    }
-    assert(error == 0);
-    DGifSlurp(emote.gif.file);
 
     return emote;
 }
