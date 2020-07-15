@@ -621,7 +621,11 @@ int main(int argc, char *argv[])
     // TODO(#44): BTTV mapping is not auto populated from the BTTV API
     // TODO(#45): FFZ mapping is not auto populated from the FFZ API
     Emote_Cache emote_cache = { };
-    emote_cache.populate_from_file("./mapping.csv", params.font_size);
+    {
+        clock_t begin = clock();
+        emote_cache.populate_from_file("./mapping.csv", params.font_size);
+        println(stdout, "Loading emotes took ", (float) (clock() - begin) / (float) CLOCKS_PER_SEC, " seconds");
+    }
 
     // FFMPEG INIT START //////////////////////////////
     AVCodec *codec = fail_if_null(
@@ -704,7 +708,11 @@ int main(int argc, char *argv[])
     encoder.packet = packet;
     encoder.output_stream = output_stream;
 
-    sample_chat_log_animation(face, &encoder, &emote_cache, params);
+    {
+        clock_t begin = clock();
+        sample_chat_log_animation(face, &encoder, &emote_cache, params);
+        println(stdout, "Rendering took ", (float) (clock() - begin) / (float) CLOCKS_PER_SEC, " seconds");
+    }
 
     encode_avframe(context, NULL, packet, output_stream);
 
