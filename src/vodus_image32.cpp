@@ -33,20 +33,15 @@ struct Image32
     }
 };
 
-Pixel32 mix_pixels(Pixel32 b32, Pixel32 a32)
+Pixel32 mix_pixels(Pixel32 dst, Pixel32 src)
 {
-    const float a32_alpha = a32.a / 255.0;
-    const float b32_alpha = b32.a / 255.0;
-    const float r_alpha = a32_alpha + b32_alpha * (1.0f - a32_alpha);
-
-    Pixel32 r = {};
-
-    r.r = (uint8_t) ((a32.r * a32_alpha + b32.r * b32_alpha * (1.0f - a32_alpha)) / r_alpha);
-    r.g = (uint8_t) ((a32.g * a32_alpha + b32.g * b32_alpha * (1.0f - a32_alpha)) / r_alpha);
-    r.b = (uint8_t) ((a32.b * a32_alpha + b32.b * b32_alpha * (1.0f - a32_alpha)) / r_alpha);
-    r.a = (uint8_t) (r_alpha * 255.0);
-
-    return r;
+    uint8_t rev_src_a = 255 - src.a;
+    Pixel32 result;
+    result.r = ((uint16_t) src.r * (uint16_t) src.a + (uint16_t) dst.r * rev_src_a) >> 8;
+    result.g = ((uint16_t) src.g * (uint16_t) src.a + (uint16_t) dst.g * rev_src_a) >> 8;
+    result.b = ((uint16_t) src.b * (uint16_t) src.a + (uint16_t) dst.b * rev_src_a) >> 8;
+    result.a = dst.a;
+    return result;
 }
 
 void fill_image32_with_color(Image32 image, Pixel32 color)
