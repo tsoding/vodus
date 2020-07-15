@@ -627,7 +627,7 @@ int main(int argc, char *argv[])
     // TODO(#44): BTTV mapping is not auto populated from the BTTV API
     // TODO(#45): FFZ mapping is not auto populated from the FFZ API
     Emote_Cache emote_cache = { };
-    emote_cache.populate_from_file("./mapping.csv");
+    emote_cache.populate_from_file("./mapping.csv", params.font_size);
 
     // FFMPEG INIT START //////////////////////////////
     AVCodec *codec = fail_if_null(

@@ -33,6 +33,83 @@ struct Image32
     }
 };
 
+// NOTE: Stolen from https://stackoverflow.com/a/53707227
+void mix_pixels_sse(Pixel32 *src, Pixel32 *dst, Pixel32 *c)
+{
+    const __m128i _swap_mask =
+        _mm_set_epi8(7,  6,   5,  4,
+                     3,  2,   1,  0,
+                     15, 14, 13, 12,
+                     11, 10,  9,  8
+            );
+
+    const __m128i _aa =
+        _mm_set_epi8( 15,15,15,15,
+                      11,11,11,11,
+                      7,7,7,7,
+                      3,3,3,3 );
+
+    const __m128i _mask1 = _mm_set_epi16(-1,0,0,0, -1,0,0,0);
+    const __m128i _mask2 = _mm_set_epi16(0,-1,-1,-1, 0,-1,-1,-1);
+    const __m128i _v1 = _mm_set1_epi16( 1 );
+
+    __m128i _src = _mm_loadu_si128((__m128i*)src);
+    __m128i _src_a = _mm_shuffle_epi8(_src, _aa);
+
+    __m128i _dst = _mm_loadu_si128((__m128i*)dst);
+    __m128i _dst_a = _mm_shuffle_epi8(_dst, _aa);
+    __m128i _one_minus_src_a = _mm_subs_epu8(
+        _mm_set1_epi8(-1), _src_a);
+
+    __m128i _out = {};
+    {
+        __m128i _s_a = _mm_cvtepu8_epi16( _src_a );
+        __m128i _s = _mm_cvtepu8_epi16( _src );
+        __m128i _d = _mm_cvtepu8_epi16( _dst );
+        __m128i _d_a = _mm_cvtepu8_epi16( _one_minus_src_a );
+        _out = _mm_adds_epu16(
+            _mm_mullo_epi16(_s, _s_a),
+            _mm_mullo_epi16(_d, _d_a));
+        _out = _mm_srli_epi16(
+            _mm_adds_epu16(
+                _mm_adds_epu16( _v1, _out ),
+                _mm_srli_epi16( _out, 8 ) ), 8 );
+        _out = _mm_or_si128(
+            _mm_and_si128(_out,_mask2),
+            _mm_and_si128(
+                _mm_adds_epu16(
+                    _s_a,
+                    _mm_cvtepu8_epi16(_dst_a)), _mask1));
+    }
+
+    // compute _out2 using high quadword of of the _src and _dst
+    //...
+    __m128i _out2 = {};
+    {
+        __m128i _s_a = _mm_cvtepu8_epi16(_mm_shuffle_epi8(_src_a, _swap_mask));
+        __m128i _s = _mm_cvtepu8_epi16(_mm_shuffle_epi8(_src, _swap_mask));
+        __m128i _d = _mm_cvtepu8_epi16(_mm_shuffle_epi8(_dst, _swap_mask));
+        __m128i _d_a = _mm_cvtepu8_epi16(_mm_shuffle_epi8(_one_minus_src_a, _swap_mask));
+        _out2 = _mm_adds_epu16(
+            _mm_mullo_epi16(_s, _s_a),
+            _mm_mullo_epi16(_d, _d_a));
+        _out2 = _mm_srli_epi16(
+            _mm_adds_epu16(
+                _mm_adds_epu16( _v1, _out2 ),
+                _mm_srli_epi16( _out2, 8 ) ), 8 );
+        _out2 = _mm_or_si128(
+            _mm_and_si128(_out2,_mask2),
+            _mm_and_si128(
+                _mm_adds_epu16(
+                    _s_a,
+                    _mm_cvtepu8_epi16(_dst_a)), _mask1));
+    }
+
+    __m128i _ret = _mm_packus_epi16( _out, _out2 );
+
+    _mm_storeu_si128( (__m128i_u*) c, _ret );
+}
+
 Pixel32 mix_pixels(Pixel32 dst, Pixel32 src)
 {
     uint8_t rev_src_a = 255 - src.a;
@@ -73,23 +150,28 @@ void slap_ftbitmap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int
 }
 
 // TODO(#24): resizing version of slap_image32_onto_image32 requires some sort of interpolation
-void slap_image32_onto_image32(Image32 dest, Image32 src,
-                               int x, int y,
-                               size_t target_width,
-                               size_t target_height)
+void slap_image32_onto_image32(Image32 dst, Image32 src,
+                               int x0, int y0)
 {
-    for (size_t row = 0; (row < target_height); ++row) {
-        if (row + y < dest.height) {
-            for (size_t col = 0; (col < target_width); ++col) {
-                if (col + x < dest.width) {
-                    const int src_row = floorf((float) row / target_height * src.height);
-                    const int src_col = floorf((float) col / target_width * src.width);
-                    const auto dest_pixel = dest.pixels[(row + y) * dest.width + col + x];
-                    const auto src_pixel = src.pixels[src_row * src.width + src_col];
-                    dest.pixels[(row + y) * dest.width + col + x] =
-                        mix_pixels(dest_pixel, src_pixel);
-                }
-            }
+    size_t x1 = std::min(x0 + src.width, dst.width);
+    size_t y1 = std::min(y0 + src.height, dst.height);
+
+    for (size_t y = y0; y < y1; ++y) {
+        for (size_t x = x0; x < x1; ++x) {
+            assert(x >= 0);
+            assert(y >= 0);
+            assert(x < dst.width);
+            assert(y < dst.height);
+
+            assert(x - x0 >= 0);
+            assert(y - y0 >= 0);
+            assert(x - x0 < src.width);
+            assert(y - y0 < src.height);
+
+            dst.pixels[y * dst.width + x] =
+                mix_pixels(
+                    dst.pixels[y * dst.width + x],
+                    src.pixels[(y - y0) * src.width + (x - x0)]);
         }
     }
 }
@@ -158,13 +240,24 @@ void slap_savedimage_onto_image32(Image32 dest,
     }
 }
 
-Image32 load_image32_from_png(const char *filepath)
+Image32 load_image32_from_png(const char *filepath, size_t size)
 {
     Image32 result = {};
     int w, h, n;
-    result.pixels = (Pixel32*) stbi_load(filepath, &w, &h, &n, 4);
-    result.width = w;
-    result.height = h;
+
+    unsigned char *origin = stbi_load(filepath, &w, &h, &n, 4);
+    defer(stbi_image_free(origin));
+
+    const float emote_ratio = (float) w / (float) h;
+    result.height = (int) size;
+    result.width = (int) floorf(result.height * emote_ratio);
+    result.pixels = new Pixel32[result.width * result.height];
+
+    stbir_resize_uint8(origin, w, h, 0,
+                       (unsigned char *) result.pixels,
+                       result.width, result.height, 0,
+                       4);
+
     return result;
 }
 

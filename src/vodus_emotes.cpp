@@ -102,7 +102,7 @@ struct Emote
     {
         switch (type) {
         case Png: {
-            slap_image32_onto_image32(surface, png, x, y, w, h);
+            slap_image32_onto_image32(surface, png, x, y);
         } return;
 
         case Gif: {
@@ -133,7 +133,8 @@ const char *string_view_as_cstr(String_View sv)
     return cstr;
 }
 
-Emote load_gif_emote(String_View file_path)
+// TODO: load_gif_emote does not resize the emote
+Emote load_gif_emote(String_View file_path, size_t size)
 {
     Emote emote = {Emote::Gif};
 
@@ -154,14 +155,15 @@ Emote load_gif_emote(String_View file_path)
     return emote;
 }
 
-Emote load_png_emote(String_View filepath)
+Emote load_png_emote(String_View filepath, size_t size)
 {
     Emote emote = {Emote::Png};
     auto filepath_cstr = string_view_as_cstr(filepath);
+
     assert(filepath_cstr);
     defer(free((void*) filepath_cstr));
 
-    emote.png = load_image32_from_png(filepath_cstr);
+    emote.png = load_image32_from_png(filepath_cstr, size);
     return emote;
 }
 
@@ -205,7 +207,7 @@ struct Emote_Cache
         }
     }
 
-    void populate_from_file(const char *mapping_filepath)
+    void populate_from_file(const char *mapping_filepath, size_t size)
     {
         auto mapping_csv = read_file_as_string_view(mapping_filepath);
         if (!mapping_csv.has_value) {
@@ -225,10 +227,10 @@ struct Emote_Cache
             }
 
             if (ext == "gif"_sv) {
-                emote_mapping[i].emote = load_gif_emote(filename);
+                emote_mapping[i].emote = load_gif_emote(filename, size);
                 gifs[gifs_count++] = &emote_mapping[i].emote.gif;
             } else if (ext == "png"_sv) {
-                emote_mapping[i].emote = load_png_emote(filename);
+                emote_mapping[i].emote = load_png_emote(filename, size);
             } else {
                 println(stderr, filename, " has unsupported extension ", ext);
                 abort();
