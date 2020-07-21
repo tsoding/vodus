@@ -451,10 +451,10 @@ Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
     if (hexstr.count != 8) return {};
 
     Pixel32 result = {};
-    ASSIGN_UNWRAP(result.r, hexstr.subview(0, 2).from_hex<uint8_t>());
-    ASSIGN_UNWRAP(result.g, hexstr.subview(2, 2).from_hex<uint8_t>());
-    ASSIGN_UNWRAP(result.b, hexstr.subview(4, 2).from_hex<uint8_t>());
-    ASSIGN_UNWRAP(result.a, hexstr.subview(6, 2).from_hex<uint8_t>());
+    unwrap_into(result.r, hexstr.subview(0, 2).from_hex<uint8_t>());
+    unwrap_into(result.g, hexstr.subview(2, 2).from_hex<uint8_t>());
+    unwrap_into(result.b, hexstr.subview(4, 2).from_hex<uint8_t>());
+    unwrap_into(result.a, hexstr.subview(6, 2).from_hex<uint8_t>());
     return {true, result};
 }
 
@@ -685,16 +685,20 @@ int main(int argc, char *argv[])
         usage(stderr);
         exit(1);
     }
-    String_View input = file_as_string_view(log_filepath);
-    while (input.count > 0) {
+    auto input = read_file_as_string_view(log_filepath);
+    if (!input.has_value) {
+        println(stderr, "Could not read file `", log_filepath, "`");
+        abort();
+    }
+    while (input.unwrap.count > 0) {
         assert(messages_size < VODUS_MESSAGES_CAPACITY);
-        String_View message = input.chop_by_delim('\n');
+        String_View message = input.unwrap.chop_by_delim('\n');
         messages[messages_size].timestamp = (int) chop_timestamp(&message);
         messages[messages_size].nickname = chop_nickname(&message);
         messages[messages_size].message = message.trim();
         messages_size++;
     }
-    messages_size = std::min(messages_size, messages_limit);
+    messages_size = min(messages_size, messages_limit);
     std::sort(messages, messages + messages_size,
               [](const Message &m1, const Message &m2) {
                   return m1.timestamp < m2.timestamp;

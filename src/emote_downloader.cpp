@@ -13,13 +13,8 @@
 #include <curl/curl.h>
 #define TZOZEN_IMPLEMENTATION
 #include "./tzozen.h"
-#include "./core.cpp"
-
-template <typename T>
-T min(T a, T b)
-{
-    return a < b ? a : b;
-}
+#include "./aids.hpp"
+using namespace aids;
 
 template <typename T, size_t Capacity>
 struct Fixed_Array

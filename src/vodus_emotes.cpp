@@ -125,12 +125,21 @@ String_View file_extension(String_View filename)
     return ext;
 }
 
+const char *string_view_as_cstr(String_View sv)
+{
+    char *cstr = (char *) malloc(sv.count);
+    if (!cstr) return cstr;
+    memcpy(cstr, sv.data, sv.count);
+    return cstr;
+}
+
 Emote load_gif_emote(String_View file_path)
 {
     Emote emote = {Emote::Gif};
 
     auto file_path_cstr = string_view_as_cstr(file_path);
-    defer(delete[] file_path_cstr);
+    assert(file_path_cstr);
+    defer(free((void*) file_path_cstr));
 
     int error = 0;
     emote.gif.file_path = file_path;
@@ -149,7 +158,9 @@ Emote load_png_emote(String_View filepath)
 {
     Emote emote = {Emote::Png};
     auto filepath_cstr = string_view_as_cstr(filepath);
-    defer(delete[] filepath_cstr);
+    assert(filepath_cstr);
+    defer(free((void*) filepath_cstr));
+
     emote.png = load_image32_from_png(filepath_cstr);
     return emote;
 }
@@ -159,6 +170,16 @@ struct Emote_Mapping
     String_View name;
     Emote emote;
 };
+
+// NOTE: stolen from http://www.cse.yorku.ca/~oz/hash.html
+unsigned long djb2(String_View str)
+{
+    unsigned long hash = 5381;
+    for (size_t i = 0; i < str.count; ++i) {
+        hash = ((hash << 5) + hash) + str.data[i];
+    }
+    return hash;
+}
 
 struct Emote_Cache
 {
@@ -186,9 +207,14 @@ struct Emote_Cache
 
     void populate_from_file(const char *mapping_filepath)
     {
-        auto mapping_csv = file_as_string_view(mapping_filepath);
-        while (mapping_csv.count > 0 && emote_mapping_count < EMOTE_MAPPING_CAPACITY) {
-            auto line = mapping_csv.chop_by_delim('\n');
+        auto mapping_csv = read_file_as_string_view(mapping_filepath);
+        if (!mapping_csv.has_value) {
+            println(stderr, "Could not read file `", mapping_filepath, "`");
+            abort();
+        }
+
+        while (mapping_csv.unwrap.count > 0 && emote_mapping_count < EMOTE_MAPPING_CAPACITY) {
+            auto line = mapping_csv.unwrap.chop_by_delim('\n');
             auto name = line.chop_by_delim(',');
             auto filename = line;
             auto ext = file_extension(filename);
