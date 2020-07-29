@@ -451,7 +451,6 @@ int main()
 int main_(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
-    const char *face_filepath = nullptr;
     const char *output_filepath = nullptr;
     size_t messages_limit = VODUS_MESSAGES_CAPACITY;
 
@@ -490,6 +489,13 @@ int main_(int argc, char *argv[])
             END_PARAMETER;                      \
         } while (0)
 
+#define SV_PARAMETER(variable)                      \
+        do {                                        \
+            BEGIN_PARAMETER(cstr);                  \
+            variable = cstr_as_string_view(cstr);   \
+            END_PARAMETER;                          \
+        } while(0)
+
 #define COLOR_PARAMETER(place)                                          \
         do {                                                            \
             BEGIN_PARAMETER(cstr);                                      \
@@ -507,7 +513,7 @@ int main_(int argc, char *argv[])
             usage(stdout);
             exit(0);
         } else if (arg == "--font"_sv) {
-            CSTR_PARAMETER(face_filepath);
+            SV_PARAMETER(params.font);
         } else if (arg == "--output"_sv || arg == "-o"_sv) {
             CSTR_PARAMETER(output_filepath);
         } else if (arg == "--limit"_sv) {
@@ -558,18 +564,15 @@ int main_(int argc, char *argv[])
         exit(1);
     }
 
-    if (face_filepath == nullptr) {
-        println(stderr, "Error: Font was not provided. Please use `--font` flag.");
-        usage(stderr);
-        exit(1);
-    }
-
     FT_Library library;
     auto error = FT_Init_FreeType(&library);
     if (error) {
         println(stderr, "Could not initialize FreeType2");
         exit(1);
     }
+
+    const char *face_filepath = string_view_as_cstr(params.font);
+    defer(free((void*) face_filepath));
 
     FT_Face face;
     error = FT_New_Face(library,

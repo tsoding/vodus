@@ -1,5 +1,14 @@
 #include "./vodus_video_params.hpp"
 
+const char *string_view_as_cstr(String_View sv)
+{
+    char *cstr = (char *) malloc(sv.count + 1);
+    if (!cstr) return cstr;
+    memcpy(cstr, sv.data, sv.count);
+    cstr[sv.count] = '\0';
+    return cstr;
+}
+
 void print1(FILE *stream, Video_Params params)
 {
     println(stream, "{");
@@ -11,6 +20,7 @@ void print1(FILE *stream, Video_Params params)
     println(stream, "    .nickname_color = ", params.nickname_color, ",");
     println(stream, "    .text_color = ", params.text_color, ",");
     println(stream, "    .bitrate = ", params.bitrate, ",");
+    println(stream, "    .font = ", params.font, ",");
     print(stream, "}");
 }
 
@@ -24,6 +34,7 @@ Video_Params default_video_params() {
     params.nickname_color   = {255, 100, 100, 255};
     params.text_color       = {200, 200, 200, 255};
     params.bitrate           = 400'000;
+    params.font              = ""_sv;
     return params;
 }
 
@@ -84,6 +95,8 @@ Video_Params video_params_from_file(const char *filepath)
                 expect_into(
                     result.bitrate, value.as_integer<int>(),
                     filepath, ":", line_number, ": `", value, "` is not a number");
+            } else if ("font"_sv == key) {
+                result.font = value;
             } else {
                 println(stderr, "Unknown Video Parameter `", key, "`");
                 abort();
