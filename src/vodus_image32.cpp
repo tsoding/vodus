@@ -201,7 +201,18 @@ void slap_image32_onto_image32(Image32 dst, Image32 src,
     }
 }
 
-// TODO(#97): gif rendering does not handle disposal flags correctly
+Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
+{
+    if (hexstr.count != 8) return {};
+
+    Pixel32 result = {};
+    unwrap_into(result.r, hexstr.subview(0, 2).from_hex<uint8_t>());
+    unwrap_into(result.g, hexstr.subview(2, 2).from_hex<uint8_t>());
+    unwrap_into(result.b, hexstr.subview(4, 2).from_hex<uint8_t>());
+    unwrap_into(result.a, hexstr.subview(6, 2).from_hex<uint8_t>());
+    return {true, result};
+}
+
 Image32 load_image32_from_savedimage(GifFileType *gif_file,
                                      size_t index,
                                      GraphicsControlBlock gcb,

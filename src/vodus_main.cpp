@@ -440,47 +440,22 @@ void usage(FILE *stream)
                     "                                    Examples: ffffffff, 000000FF, A0eA0000");
 }
 
-Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
+int main()
 {
-    if (hexstr.count != 8) return {};
+    auto params = video_params_from_file("video.params");
+    println(stdout, params);
 
-    Pixel32 result = {};
-    unwrap_into(result.r, hexstr.subview(0, 2).from_hex<uint8_t>());
-    unwrap_into(result.g, hexstr.subview(2, 2).from_hex<uint8_t>());
-    unwrap_into(result.b, hexstr.subview(4, 2).from_hex<uint8_t>());
-    unwrap_into(result.a, hexstr.subview(6, 2).from_hex<uint8_t>());
-    return {true, result};
-}
-
-int main_()
-{
-    void *iterator = NULL;
-    const AVCodec *codec = NULL;
-    println(stdout, "Probably available codecs:");
-    while ((codec = av_codec_iterate(&iterator))) {
-        if (avcodec_find_encoder_by_name(codec->name)) {
-            println(stdout, "  ", codec->name);
-        }
-    }
     return 0;
 }
 
-int main(int argc, char *argv[])
+int main_(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
     const char *face_filepath = nullptr;
     const char *output_filepath = nullptr;
     size_t messages_limit = VODUS_MESSAGES_CAPACITY;
 
-    Video_Params params = {};
-    params.fps               = 60;
-    params.width             = 1920;
-    params.height            = 1080;
-    params.font_size         = 128;
-    params.background_color = {32, 32, 32, 255};
-    params.nickname_color   = {255, 100, 100, 255};
-    params.text_color       = {200, 200, 200, 255};
-    params.bitrate           = 400'000;
+    Video_Params params = default_video_params();
 
     for (int i = 1; i < argc;) {
         const auto arg = cstr_as_string_view(argv[i]);
