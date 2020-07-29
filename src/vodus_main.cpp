@@ -452,7 +452,6 @@ int main_(int argc, char *argv[])
 {
     const char *log_filepath = nullptr;
     const char *output_filepath = nullptr;
-    size_t messages_limit = VODUS_MESSAGES_CAPACITY;
 
     Video_Params params = default_video_params();
 
@@ -517,7 +516,7 @@ int main_(int argc, char *argv[])
         } else if (arg == "--output"_sv || arg == "-o"_sv) {
             CSTR_PARAMETER(output_filepath);
         } else if (arg == "--limit"_sv) {
-            INTEGER_PARAMETER(size_t, messages_limit);
+            INTEGER_PARAMETER(size_t, params.messages_limit);
         } else if (arg == "--width"_sv) {
             INTEGER_PARAMETER(size_t, params.width);
         } else if (arg == "--height"_sv) {
@@ -676,7 +675,7 @@ int main_(int argc, char *argv[])
         messages[messages_size].message = message.trim();
         messages_size++;
     }
-    messages_size = min(messages_size, messages_limit);
+    messages_size = min(messages_size, params.messages_limit);
     std::sort(messages, messages + messages_size,
               [](const Message &m1, const Message &m2) {
                   return m1.timestamp < m2.timestamp;

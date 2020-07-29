@@ -21,6 +21,7 @@ void print1(FILE *stream, Video_Params params)
     println(stream, "    .text_color = ", params.text_color, ",");
     println(stream, "    .bitrate = ", params.bitrate, ",");
     println(stream, "    .font = ", params.font, ",");
+    println(stream, "    .message_limit = ", params.messages_limit, ",");
     print(stream, "}");
 }
 
@@ -30,11 +31,12 @@ Video_Params default_video_params() {
     params.width             = 1920;
     params.height            = 1080;
     params.font_size         = 128;
-    params.background_color = {32, 32, 32, 255};
-    params.nickname_color   = {255, 100, 100, 255};
-    params.text_color       = {200, 200, 200, 255};
+    params.background_color  = {32, 32, 32, 255};
+    params.nickname_color    = {255, 100, 100, 255};
+    params.text_color        = {200, 200, 200, 255};
     params.bitrate           = 400'000;
     params.font              = ""_sv;
+    params.messages_limit     = VODUS_MESSAGES_CAPACITY;
     return params;
 }
 
@@ -97,6 +99,10 @@ Video_Params video_params_from_file(const char *filepath)
                     filepath, ":", line_number, ": `", value, "` is not a number");
             } else if ("font"_sv == key) {
                 result.font = value;
+            } else if ("limit"_sv == key) {
+                expect_into(
+                    result.messages_limit, value.as_integer<size_t>(),
+                    filepath, ":", line_number, ": `", value, "` is not a number");
             } else {
                 println(stderr, "Unknown Video Parameter `", key, "`");
                 abort();

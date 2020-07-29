@@ -12,6 +12,7 @@ struct Video_Params
     Pixel32 text_color;
     int bitrate;
     String_View font;
+    size_t messages_limit;
 };
 
 void print1(FILE *stream, Video_Params params);
