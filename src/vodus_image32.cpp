@@ -177,6 +177,8 @@ void slap_image32_onto_image32(Image32 dst, Image32 src,
             assert(x - x0 < src.width);
             assert(y - y0 < src.height);
 
+            // TODO: SSE is not disablable
+            // TODO: SSE rendering is slightly different from non SSE version
             mix_pixels_sse(
                 &src.pixels[(y - y0) * src.width + (x - x0)],
                 &dst.pixels[y * dst.width + x],
@@ -241,7 +243,7 @@ Animat32 load_animat32_from_gif(const char *filepath, size_t size)
     int error = 0;
     GifFileType *gif_file = DGifOpenFileName(filepath, &error);
     if (error) {
-        println(stderr, "[ERROR] Could not read gif file: ", filepath);
+        println(stderr, "[ERROR] Could not open gif file: ", filepath);
         abort();
     }
 

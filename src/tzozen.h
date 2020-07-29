@@ -1,7 +1,7 @@
 #ifndef TZOZEN_H_
 #define TZOZEN_H_
 
-// TODO: https://github.com/nothings/stb/blob/master/docs/stb_howto.txt
+// todo: https://github.com/nothings/stb/blob/master/docs/stb_howto.txt
 //   [+] 1. #define LIBRARYNAME_IMPLEMENTATION
 //   [+] 2. AVOID DEPENDENCIES
 //   [+] 3. AVOID MALLOC
@@ -110,7 +110,7 @@ TZOZENDEF void json_object_push(Memory *memory, Json_Object *object, String key,
 TZOZENDEF Json_Value json_object_value_by_key(Json_Object object, String key);
 
 typedef struct {
-    // TODO(#26): because of the use of String-s Json_Number can hold an incorrect value
+    // todo(#26): because of the use of String-s Json_Number can hold an incorrect value
     //   But you can only get an incorrect Json_Number if you construct it yourself.
     //   Anything coming from parse_json_value should be always a correct number.
     String integer;
@@ -189,7 +189,7 @@ TZOZENDEF void print_json_value(FILE *stream, Json_Value value);
 #endif  // TZOZEN_H_
 
 #ifdef TZOZEN_IMPLEMENTATION
-// TODO: port https://github.com/tsoding/skedudle/pull/74 when it's merged
+// todo: port https://github.com/tsoding/skedudle/pull/74 when it's merged
 
 TZOZENDEF void *memory_alloc(Memory *memory, size_t size)
 {
@@ -550,7 +550,7 @@ TZOZENDEF Json_Result parse_json_number(Memory *memory, String source)
         chop(&source, 1);
     }
 
-    // TODO(#34): empty integer with fraction is not taken into account
+    // todo(#34): empty integer with fraction is not taken into account
     if (integer.len == 0
         || string_equal(integer, SLT("-"))
         || (integer.len > 1 && *integer.data == '0')
@@ -716,7 +716,7 @@ TZOZENDEF Json_Result parse_escape_sequence(Memory *memory, String source)
             // `parse_escape_sequence()` is used 2020-05-05) we are
             // copying it to `memory`.
             //
-            // TODO: We don't have any policy on what kind of memory we should always refer to int Json_Value-s and Json_Result-s
+            // todo: We don't have any policy on what kind of memory we should always refer to int Json_Value-s and Json_Result-s
             String s = {1, &unescape_map[i][1]};
             return result_success(drop(source, 1), json_string(s));
         }
@@ -813,7 +813,7 @@ TZOZENDEF Json_Result parse_json_string(Memory *memory, String source)
 
             source = result.rest;
         } else {
-            // TODO(#37): json parser is not aware of the input encoding
+            // todo(#37): json parser is not aware of the input encoding
             assert(buffer_size < buffer_capacity);
             buffer[buffer_size++] = *source.data;
             chop(&source, 1);
@@ -960,7 +960,7 @@ TZOZENDEF Json_Result parse_json_value_with_depth(Memory *memory, String source,
     return parse_json_number(memory, source);
 }
 
-// TODO(#40): parse_json_value is not aware of input encoding
+// todo(#40): parse_json_value is not aware of input encoding
 TZOZENDEF Json_Result parse_json_value(Memory *memory, String source)
 {
     return parse_json_value_with_depth(memory, source, 0);
