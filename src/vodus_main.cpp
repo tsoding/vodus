@@ -108,19 +108,13 @@ void render_message(Image32 surface, FT_Face face,
         if (maybe_emote.has_value) {
             auto emote = maybe_emote.unwrap;
 
-            const float emote_ratio = (float) emote.width() / emote.height();
-            const int emote_height = params.font_size;
-            const int emote_width = floorf(emote_height * emote_ratio);
-
-            if (*x + emote_width >= (int)surface.width) {
+            if (*x + emote.width() >= (int)surface.width) {
                 *x = 0;
                 *y += params.font_size;
             }
 
-            emote.slap_onto_image32(surface,
-                                    *x, *y - emote_height,
-                                    emote_width, emote_height);
-            *x += emote_width;
+            emote.slap_onto_image32(surface, *x, *y - emote.height());
+            *x += emote.width();
         } else {
             slap_text_onto_image32_wrapped(surface,
                                            face,
@@ -626,8 +620,14 @@ int main(int argc, char *argv[])
 
     // TODO(#44): BTTV mapping is not auto populated from the BTTV API
     // TODO(#45): FFZ mapping is not auto populated from the FFZ API
+    // TODO(#92): loading emotes step is too slow
+    // Can we speed it up?
     Emote_Cache emote_cache = { };
-    emote_cache.populate_from_file("./mapping.csv");
+    {
+        clock_t begin = clock();
+        emote_cache.populate_from_file("./mapping.csv", params.font_size);
+        println(stdout, "Loading emotes took ", (float) (clock() - begin) / (float) CLOCKS_PER_SEC, " seconds");
+    }
 
     // FFMPEG INIT START //////////////////////////////
     AVCodec *codec = fail_if_null(
@@ -710,7 +710,11 @@ int main(int argc, char *argv[])
     encoder.packet = packet;
     encoder.output_stream = output_stream;
 
-    sample_chat_log_animation(face, &encoder, &emote_cache, params);
+    {
+        clock_t begin = clock();
+        sample_chat_log_animation(face, &encoder, &emote_cache, params);
+        println(stdout, "Rendering took ", (float) (clock() - begin) / (float) CLOCKS_PER_SEC, " seconds");
+    }
 
     encode_avframe(context, NULL, packet, output_stream);
 

@@ -11,6 +11,8 @@
 #include <gif_lib.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "./stb_image.h"
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include "./stb_image_resize.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -20,6 +22,9 @@ extern "C" {
 
 #include "./aids.hpp"
 using namespace aids;
+
+#include <tmmintrin.h>
+#include <smmintrin.h>
 
 const size_t VODUS_MESSAGES_CAPACITY = 1024;
 

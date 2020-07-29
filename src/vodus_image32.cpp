@@ -33,20 +33,99 @@ struct Image32
     }
 };
 
-Pixel32 mix_pixels(Pixel32 b32, Pixel32 a32)
+struct Animat32
 {
-    const float a32_alpha = a32.a / 255.0;
-    const float b32_alpha = b32.a / 255.0;
-    const float r_alpha = a32_alpha + b32_alpha * (1.0f - a32_alpha);
+    Image32 *frames;
+    int *frame_delays;
+    size_t count;
+};
 
-    Pixel32 r = {};
+// NOTE: Stolen from https://stackoverflow.com/a/53707227
+void mix_pixels_sse(Pixel32 *src, Pixel32 *dst, Pixel32 *c)
+{
+    const __m128i _swap_mask =
+        _mm_set_epi8(7,  6,   5,  4,
+                     3,  2,   1,  0,
+                     15, 14, 13, 12,
+                     11, 10,  9,  8
+            );
 
-    r.r = (uint8_t) ((a32.r * a32_alpha + b32.r * b32_alpha * (1.0f - a32_alpha)) / r_alpha);
-    r.g = (uint8_t) ((a32.g * a32_alpha + b32.g * b32_alpha * (1.0f - a32_alpha)) / r_alpha);
-    r.b = (uint8_t) ((a32.b * a32_alpha + b32.b * b32_alpha * (1.0f - a32_alpha)) / r_alpha);
-    r.a = (uint8_t) (r_alpha * 255.0);
+    const __m128i _aa =
+        _mm_set_epi8( 15,15,15,15,
+                      11,11,11,11,
+                      7,7,7,7,
+                      3,3,3,3 );
 
-    return r;
+    const __m128i _mask1 = _mm_set_epi16(-1,0,0,0, -1,0,0,0);
+    const __m128i _mask2 = _mm_set_epi16(0,-1,-1,-1, 0,-1,-1,-1);
+    const __m128i _v1 = _mm_set1_epi16( 1 );
+
+    __m128i _src = _mm_loadu_si128((__m128i*)src);
+    __m128i _src_a = _mm_shuffle_epi8(_src, _aa);
+
+    __m128i _dst = _mm_loadu_si128((__m128i*)dst);
+    __m128i _dst_a = _mm_shuffle_epi8(_dst, _aa);
+    __m128i _one_minus_src_a = _mm_subs_epu8(
+        _mm_set1_epi8(-1), _src_a);
+
+    __m128i _out = {};
+    {
+        __m128i _s_a = _mm_cvtepu8_epi16( _src_a );
+        __m128i _s = _mm_cvtepu8_epi16( _src );
+        __m128i _d = _mm_cvtepu8_epi16( _dst );
+        __m128i _d_a = _mm_cvtepu8_epi16( _one_minus_src_a );
+        _out = _mm_adds_epu16(
+            _mm_mullo_epi16(_s, _s_a),
+            _mm_mullo_epi16(_d, _d_a));
+        _out = _mm_srli_epi16(
+            _mm_adds_epu16(
+                _mm_adds_epu16( _v1, _out ),
+                _mm_srli_epi16( _out, 8 ) ), 8 );
+        _out = _mm_or_si128(
+            _mm_and_si128(_out,_mask2),
+            _mm_and_si128(
+                _mm_adds_epu16(
+                    _s_a,
+                    _mm_cvtepu8_epi16(_dst_a)), _mask1));
+    }
+
+    // compute _out2 using high quadword of of the _src and _dst
+    //...
+    __m128i _out2 = {};
+    {
+        __m128i _s_a = _mm_cvtepu8_epi16(_mm_shuffle_epi8(_src_a, _swap_mask));
+        __m128i _s = _mm_cvtepu8_epi16(_mm_shuffle_epi8(_src, _swap_mask));
+        __m128i _d = _mm_cvtepu8_epi16(_mm_shuffle_epi8(_dst, _swap_mask));
+        __m128i _d_a = _mm_cvtepu8_epi16(_mm_shuffle_epi8(_one_minus_src_a, _swap_mask));
+        _out2 = _mm_adds_epu16(
+            _mm_mullo_epi16(_s, _s_a),
+            _mm_mullo_epi16(_d, _d_a));
+        _out2 = _mm_srli_epi16(
+            _mm_adds_epu16(
+                _mm_adds_epu16( _v1, _out2 ),
+                _mm_srli_epi16( _out2, 8 ) ), 8 );
+        _out2 = _mm_or_si128(
+            _mm_and_si128(_out2,_mask2),
+            _mm_and_si128(
+                _mm_adds_epu16(
+                    _s_a,
+                    _mm_cvtepu8_epi16(_dst_a)), _mask1));
+    }
+
+    __m128i _ret = _mm_packus_epi16( _out, _out2 );
+
+    _mm_storeu_si128( (__m128i_u*) c, _ret );
+}
+
+Pixel32 mix_pixels(Pixel32 dst, Pixel32 src)
+{
+    uint8_t rev_src_a = 255 - src.a;
+    Pixel32 result;
+    result.r = ((uint16_t) src.r * (uint16_t) src.a + (uint16_t) dst.r * rev_src_a) >> 8;
+    result.g = ((uint16_t) src.g * (uint16_t) src.a + (uint16_t) dst.g * rev_src_a) >> 8;
+    result.b = ((uint16_t) src.b * (uint16_t) src.a + (uint16_t) dst.b * rev_src_a) >> 8;
+    result.a = dst.a;
+    return result;
 }
 
 void fill_image32_with_color(Image32 image, Pixel32 color)
@@ -78,63 +157,45 @@ void slap_ftbitmap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int
 }
 
 // TODO(#24): resizing version of slap_image32_onto_image32 requires some sort of interpolation
-void slap_image32_onto_image32(Image32 dest, Image32 src,
-                               int x, int y,
-                               size_t target_width,
-                               size_t target_height)
+void slap_image32_onto_image32(Image32 dst, Image32 src,
+                               int x0, int y0)
 {
-    for (size_t row = 0; (row < target_height); ++row) {
-        if (row + y < dest.height) {
-            for (size_t col = 0; (col < target_width); ++col) {
-                if (col + x < dest.width) {
-                    const int src_row = floorf((float) row / target_height * src.height);
-                    const int src_col = floorf((float) col / target_width * src.width);
-                    const auto dest_pixel = dest.pixels[(row + y) * dest.width + col + x];
-                    const auto src_pixel = src.pixels[src_row * src.width + src_col];
-                    dest.pixels[(row + y) * dest.width + col + x] =
-                        mix_pixels(dest_pixel, src_pixel);
-                }
-            }
+    const size_t SIMD_PIXEL_PACK_SIZE = 4;
+
+    size_t x1 = std::min(x0 + src.width, dst.width);
+    size_t y1 = std::min(y0 + src.height, dst.height);
+
+    for (size_t y = y0; y < y1; ++y) {
+        for (size_t x = x0; x < x1; x += SIMD_PIXEL_PACK_SIZE) {
+            assert(x >= 0);
+            assert(y >= 0);
+            assert(x < dst.width);
+            assert(y < dst.height);
+
+            assert(x - x0 >= 0);
+            assert(y - y0 >= 0);
+            assert(x - x0 < src.width);
+            assert(y - y0 < src.height);
+
+            // TODO(#90): SSE is not disablable
+            // TODO(#91): SSE rendering is slightly different from non SSE version
+            mix_pixels_sse(
+                &src.pixels[(y - y0) * src.width + (x - x0)],
+                &dst.pixels[y * dst.width + x],
+                &dst.pixels[y * dst.width + x]);
+
+            // dst.pixels[y * dst.width + x] =
+            //     mix_pixels(
+            //         dst.pixels[y * dst.width + x],
+            //         src.pixels[(y - y0) * src.width + (x - x0)]);
         }
     }
 }
 
-void slap_savedimage_onto_image32(Image32 dest,
-                                  SavedImage *src,
-                                  ColorMapObject *SColorMap,
-                                  GraphicsControlBlock gcb,
-                                  int x, int y)
-{
-    assert(SColorMap);
-    assert(SColorMap->BitsPerPixel <= 8);
-    assert(!SColorMap->SortFlag);
-    assert(src);
-    assert(src->ImageDesc.Left == 0);
-    assert(src->ImageDesc.Top == 0);
-
-    for (size_t row = 0; ((int) row < src->ImageDesc.Height); ++row) {
-        if (row + y < dest.height) {
-            for (size_t col = 0; ((int) col < src->ImageDesc.Width); ++col) {
-                if (col + x < dest.width) {
-                    auto index = src->RasterBits[row * src->ImageDesc.Width + col];
-                    if (index != gcb.TransparentColor) {
-                        auto pixel = SColorMap->Colors[index];
-                        dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
-                        dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
-                        dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
-                    }
-                }
-            }
-        }
-    }
-}
-
-void slap_savedimage_onto_image32(Image32 dest,
-                                  SavedImage *src,
-                                  ColorMapObject *SColorMap,
-                                  GraphicsControlBlock gcb,
-                                  int x, int y,
-                                  int target_width, int target_height)
+Image32 load_image32_from_savedimage(SavedImage *src,
+                                     ColorMapObject *SColorMap,
+                                     GraphicsControlBlock gcb,
+                                     size_t size)
 {
     assert(SColorMap);
     assert(SColorMap->BitsPerPixel <= 8);
@@ -143,33 +204,111 @@ void slap_savedimage_onto_image32(Image32 dest,
     assert(src->ImageDesc.Left == 0);
     assert(src->ImageDesc.Top == 0);
 
-    for (size_t row = 0; ((int) row < target_height); ++row) {
-        if (row + y < dest.height) {
-            for (size_t col = 0; ((int) col < target_width); ++col) {
-                if (col + x < dest.width) {
-                    int src_row = floorf((float) row / target_height * src->ImageDesc.Height);
-                    int src_col = floorf((float) col / target_width * src->ImageDesc.Width);
+    Image32 origin = {};
+    origin.width = src->ImageDesc.Width;
+    origin.height = src->ImageDesc.Height;
+    origin.pixels = new Pixel32[origin.width * origin.height];
+    defer(delete[] origin.pixels);
 
-                    auto index = src->RasterBits[src_row * src->ImageDesc.Width + src_col];
-                    if (index != gcb.TransparentColor) {
-                        auto pixel = SColorMap->Colors[index];
-                        dest.pixels[(row + y) * dest.width + col + x].r = pixel.Red;
-                        dest.pixels[(row + y) * dest.width + col + x].g = pixel.Green;
-                        dest.pixels[(row + y) * dest.width + col + x].b = pixel.Blue;
-                    }
-                }
+    for (size_t y = 0; y < origin.height; ++y) {
+        for (size_t x = 0; x < origin.width; ++x) {
+            auto index = src->RasterBits[y * origin.width + x];
+            auto pixel = SColorMap->Colors[index];
+            if (index != gcb.TransparentColor) {
+                origin.pixels[y * origin.width + x].r = pixel.Red;
+                origin.pixels[y * origin.width + x].g = pixel.Green;
+                origin.pixels[y * origin.width + x].b = pixel.Blue;
+                origin.pixels[y * origin.width + x].a = 255;
+            } else {
+                origin.pixels[y * origin.width + x] = {};
             }
         }
     }
+
+    const float emote_ratio = (float) origin.width / (float) origin.height;
+    Image32 result = {};
+    result.height = (int) size;
+    result.width = (int) floorf(result.height * emote_ratio);
+    result.pixels = new Pixel32[result.width * result.height];
+
+    stbir_resize_uint8((unsigned char *) origin.pixels, origin.width, origin.height, 0,
+                       (unsigned char *) result.pixels, result.width, result.height, 0,
+                       4);
+
+    return result;
 }
 
-Image32 load_image32_from_png(const char *filepath)
+Animat32 load_animat32_from_gif(const char *filepath, size_t size)
+{
+    int error = 0;
+    GifFileType *gif_file = DGifOpenFileName(filepath, &error);
+    if (error) {
+        println(stderr, "[ERROR] Could not open gif file: ", filepath);
+        abort();
+    }
+
+    if (DGifSlurp(gif_file) == GIF_ERROR) {
+        println(stderr, "[ERROR] Could not read gif file: ", filepath);
+        abort();
+    }
+
+    GraphicsControlBlock gcb = {};
+
+    Animat32 result = {};
+    result.count = gif_file->ImageCount;
+    result.frames = new Image32[result.count];
+    result.frame_delays = new int[result.count];
+
+    for (size_t index = 0; index < result.count; ++index) {
+        int ok = DGifSavedExtensionToGCB(gif_file, index, &gcb);
+        if (!ok) {
+            println(stderr, "[ERROR] Could not retrieve Graphics Control Block from `",
+                    filepath, "` on index ", index);
+            abort();
+        }
+
+        result.frame_delays[index] = gcb.DelayTime;
+
+        // TODO(#93): load_animat32_from_gif does not work on some gifs
+        if (gif_file->SavedImages[index].ImageDesc.Left == 0 &&
+            gif_file->SavedImages[index].ImageDesc.Top == 0) {
+          result.frames[index] = load_image32_from_savedimage(
+              &gif_file->SavedImages[index],
+              gif_file->SColorMap,
+              gcb,
+              size);
+        } else {
+            // println(stderr, filepath);
+        }
+    }
+
+    DGifCloseFile(gif_file, &error);
+    if (error) {
+        println(stderr, "[ERROR] Could not close gif file: ", filepath);
+        abort();
+    }
+
+    return result;
+}
+
+Image32 load_image32_from_png(const char *filepath, size_t size)
 {
     Image32 result = {};
     int w, h, n;
-    result.pixels = (Pixel32*) stbi_load(filepath, &w, &h, &n, 4);
-    result.width = w;
-    result.height = h;
+
+    unsigned char *origin = stbi_load(filepath, &w, &h, &n, 4);
+    defer(stbi_image_free(origin));
+
+    const float emote_ratio = (float) w / (float) h;
+    result.height = (int) size;
+    result.width = (int) floorf(result.height * emote_ratio);
+    result.pixels = new Pixel32[result.width * result.height];
+
+    stbir_resize_uint8(origin, w, h, 0,
+                       (unsigned char *) result.pixels,
+                       result.width, result.height, 0,
+                       4);
+
     return result;
 }
 

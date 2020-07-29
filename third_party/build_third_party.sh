@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# TODO(#89): Integrate ./build_third_party.sh into the main build process
 FFMPEG_VERSION=4.3
 GIFLIB_VERSION=5.2.1
 
