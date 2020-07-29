@@ -201,35 +201,41 @@ void slap_image32_onto_image32(Image32 dst, Image32 src,
     }
 }
 
-Image32 load_image32_from_savedimage(SavedImage *src,
-                                     ColorMapObject *SColorMap,
+// TODO: gif rendering does not handle disposal flags correctly
+Image32 load_image32_from_savedimage(GifFileType *gif_file,
+                                     size_t index,
                                      GraphicsControlBlock gcb,
                                      size_t size)
 {
-    assert(SColorMap);
-    assert(SColorMap->BitsPerPixel <= 8);
-    assert(!SColorMap->SortFlag);
-    assert(src);
-    assert(src->ImageDesc.Left == 0);
-    assert(src->ImageDesc.Top == 0);
+    assert(gif_file);
+    assert(gif_file->SColorMap);
+    assert(gif_file->SColorMap->BitsPerPixel <= 8);
+    assert(!gif_file->SColorMap->SortFlag);
+
+    SavedImage *src = &gif_file->SavedImages[index];
+
+    assert(src->ImageDesc.Left >= 0);
+    assert(src->ImageDesc.Top >= 0);
 
     Image32 origin = {};
-    origin.width = src->ImageDesc.Width;
-    origin.height = src->ImageDesc.Height;
+    origin.width  = gif_file->SWidth;
+    origin.height = gif_file->SHeight;
     origin.pixels = new Pixel32[origin.width * origin.height];
+    memset(origin.pixels, 0, sizeof(*origin.pixels) * origin.width * origin.height);
     defer(delete[] origin.pixels);
 
-    for (size_t y = 0; y < origin.height; ++y) {
-        for (size_t x = 0; x < origin.width; ++x) {
-            auto index = src->RasterBits[y * origin.width + x];
-            auto pixel = SColorMap->Colors[index];
-            if (index != gcb.TransparentColor) {
-                origin.pixels[y * origin.width + x].r = pixel.Red;
-                origin.pixels[y * origin.width + x].g = pixel.Green;
-                origin.pixels[y * origin.width + x].b = pixel.Blue;
-                origin.pixels[y * origin.width + x].a = 255;
+    for (size_t y = 0; y < src->ImageDesc.Height; ++y) {
+        for (size_t x = 0; x < src->ImageDesc.Width; ++x) {
+            auto src_color_index = src->RasterBits[y * src->ImageDesc.Width + x];
+            auto pixel = gif_file->SColorMap->Colors[src_color_index];
+            auto dst_pixel_index = (y + src->ImageDesc.Top) * origin.width + (x + src->ImageDesc.Left);
+            if (src_color_index != gcb.TransparentColor) {
+                origin.pixels[dst_pixel_index].r = pixel.Red;
+                origin.pixels[dst_pixel_index].g = pixel.Green;
+                origin.pixels[dst_pixel_index].b = pixel.Blue;
+                origin.pixels[dst_pixel_index].a = 255;
             } else {
-                origin.pixels[y * origin.width + x] = {};
+                origin.pixels[dst_pixel_index] = {};
             }
         }
     }
@@ -279,16 +285,22 @@ Animat32 load_animat32_from_gif(const char *filepath, size_t size)
         result.frame_delays[index] = gcb.DelayTime;
 
         // TODO(#93): load_animat32_from_gif does not work on some gifs
-        if (gif_file->SavedImages[index].ImageDesc.Left == 0 &&
-            gif_file->SavedImages[index].ImageDesc.Top == 0) {
+        // if (gif_file->SavedImages[index].ImageDesc.Left == 0 &&
+        //     gif_file->SavedImages[index].ImageDesc.Top == 0) {
           result.frames[index] = load_image32_from_savedimage(
-              &gif_file->SavedImages[index],
-              gif_file->SColorMap,
+              gif_file,
+              index,
               gcb,
-              size);
-        } else {
-            // println(stderr, filepath);
-        }
+              size
+              //////////////////////////////
+              // &gif_file->SavedImages[index],
+              // gif_file->SColorMap,
+              // gcb,
+              // size
+              );
+        // } else {
+        //     // println(stderr, filepath);
+        // }
     }
 
     DGifCloseFile(gif_file, &error);
