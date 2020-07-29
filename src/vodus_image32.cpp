@@ -269,14 +269,14 @@ Animat32 load_animat32_from_gif(const char *filepath, size_t size)
 
         result.frame_delays[index] = gcb.DelayTime;
 
-        // TODO: does not work on some gifs
+        // TODO(#93): load_animat32_from_gif does not work on some gifs
         if (gif_file->SavedImages[index].ImageDesc.Left == 0 &&
             gif_file->SavedImages[index].ImageDesc.Top == 0) {
-            result.frames[index] = load_image32_from_savedimage(
-                &gif_file->SavedImages[index],
-                gif_file->SColorMap,
-                gcb,
-                size);
+          result.frames[index] = load_image32_from_savedimage(
+              &gif_file->SavedImages[index],
+              gif_file->SColorMap,
+              gcb,
+              size);
         } else {
             // println(stderr, filepath);
         }
