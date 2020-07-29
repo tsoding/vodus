@@ -40,6 +40,7 @@ struct Animat32
     size_t count;
 };
 
+#ifdef VODUS_SSE
 // NOTE: Stolen from https://stackoverflow.com/a/53707227
 void mix_pixels_sse(Pixel32 *src, Pixel32 *dst, Pixel32 *c)
 {
@@ -116,6 +117,7 @@ void mix_pixels_sse(Pixel32 *src, Pixel32 *dst, Pixel32 *c)
 
     _mm_storeu_si128( (__m128i_u*) c, _ret );
 }
+#endif // VODUS_SSE
 
 Pixel32 mix_pixels(Pixel32 dst, Pixel32 src)
 {
@@ -160,7 +162,11 @@ void slap_ftbitmap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int
 void slap_image32_onto_image32(Image32 dst, Image32 src,
                                int x0, int y0)
 {
+#ifdef VODUS_SSE
     const size_t SIMD_PIXEL_PACK_SIZE = 4;
+#else
+    const size_t SIMD_PIXEL_PACK_SIZE = 1;
+#endif // VODUS_SSE
 
     size_t x1 = std::min(x0 + src.width, dst.width);
     size_t y1 = std::min(y0 + src.height, dst.height);
@@ -177,17 +183,18 @@ void slap_image32_onto_image32(Image32 dst, Image32 src,
             assert(x - x0 < src.width);
             assert(y - y0 < src.height);
 
-            // TODO(#90): SSE is not disablable
             // TODO(#91): SSE rendering is slightly different from non SSE version
+#ifdef VODUS_SSE
             mix_pixels_sse(
                 &src.pixels[(y - y0) * src.width + (x - x0)],
                 &dst.pixels[y * dst.width + x],
                 &dst.pixels[y * dst.width + x]);
-
-            // dst.pixels[y * dst.width + x] =
-            //     mix_pixels(
-            //         dst.pixels[y * dst.width + x],
-            //         src.pixels[(y - y0) * src.width + (x - x0)]);
+#else
+            dst.pixels[y * dst.width + x] =
+                mix_pixels(
+                    dst.pixels[y * dst.width + x],
+                    src.pixels[(y - y0) * src.width + (x - x0)]);
+#endif // VODUS_SSE
         }
     }
 }
