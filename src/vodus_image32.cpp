@@ -177,7 +177,7 @@ void slap_image32_onto_image32(Image32 dst, Image32 src,
             assert(x - x0 < src.width);
             assert(y - y0 < src.height);
 
-            // TODO: SSE is not disablable
+            // TODO(#90): SSE is not disablable
             // TODO: SSE rendering is slightly different from non SSE version
             mix_pixels_sse(
                 &src.pixels[(y - y0) * src.width + (x - x0)],
