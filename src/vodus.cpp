@@ -23,8 +23,10 @@ extern "C" {
 #include "./aids.hpp"
 using namespace aids;
 
+#ifdef VODUS_SSE
 #include <tmmintrin.h>
 #include <smmintrin.h>
+#endif // VODUS_SSE
 
 const size_t VODUS_MESSAGES_CAPACITY = 1024;
 
