@@ -172,7 +172,10 @@ void slap_image32_onto_image32(Image32 dst, Image32 src,
     size_t y1 = std::min(y0 + src.height, dst.height);
 
     for (size_t y = y0; y < y1; ++y) {
-        for (size_t x = x0; x < x1; x += SIMD_PIXEL_PACK_SIZE) {
+        for (size_t x = x0;
+             x + SIMD_PIXEL_PACK_SIZE < x1;
+             x += SIMD_PIXEL_PACK_SIZE)
+        {
             assert(x >= 0);
             assert(y >= 0);
             assert(x < dst.width);
@@ -183,7 +186,6 @@ void slap_image32_onto_image32(Image32 dst, Image32 src,
             assert(x - x0 < src.width);
             assert(y - y0 < src.height);
 
-            // TODO(#91): SSE rendering is slightly different from non SSE version
 #ifdef VODUS_SSE
             mix_pixels_sse(
                 &src.pixels[(y - y0) * src.width + (x - x0)],
