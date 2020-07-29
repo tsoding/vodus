@@ -201,7 +201,7 @@ void slap_image32_onto_image32(Image32 dst, Image32 src,
     }
 }
 
-// TODO: gif rendering does not handle disposal flags correctly
+// TODO(#97): gif rendering does not handle disposal flags correctly
 Image32 load_image32_from_savedimage(GifFileType *gif_file,
                                      size_t index,
                                      GraphicsControlBlock gcb,
