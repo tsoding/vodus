@@ -620,7 +620,7 @@ int main(int argc, char *argv[])
 
     // TODO(#44): BTTV mapping is not auto populated from the BTTV API
     // TODO(#45): FFZ mapping is not auto populated from the FFZ API
-    // TODO: loading emotes step is too slow
+    // TODO(#92): loading emotes step is too slow
     // Can we speed it up?
     Emote_Cache emote_cache = { };
     {
