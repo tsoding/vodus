@@ -104,9 +104,10 @@ String_View file_extension(String_View filename)
 
 const char *string_view_as_cstr(String_View sv)
 {
-    char *cstr = (char *) malloc(sv.count);
+    char *cstr = (char *) malloc(sv.count + 1);
     if (!cstr) return cstr;
     memcpy(cstr, sv.data, sv.count);
+    cstr[sv.count] = '\0';
     return cstr;
 }
 
@@ -152,9 +153,6 @@ unsigned long djb2(String_View str)
     return hash;
 }
 
-// TODO: Vodus tries to open emotes with corrupted paths
-// This is probably a result of incorrect CSV parsing. Let's try to use CSV
-// parser implementation in tsoding/gl.hpp
 struct Emote_Cache
 {
     Maybe<Emote> emote_by_name(String_View name,
