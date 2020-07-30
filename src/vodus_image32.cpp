@@ -235,8 +235,8 @@ Image32 load_image32_from_savedimage(GifFileType *gif_file,
     memset(origin.pixels, 0, sizeof(*origin.pixels) * origin.width * origin.height);
     defer(delete[] origin.pixels);
 
-    for (size_t y = 0; y < src->ImageDesc.Height; ++y) {
-        for (size_t x = 0; x < src->ImageDesc.Width; ++x) {
+    for (size_t y = 0; (int) y < src->ImageDesc.Height; ++y) {
+        for (size_t x = 0; (int) x < src->ImageDesc.Width; ++x) {
             auto src_color_index = src->RasterBits[y * src->ImageDesc.Width + x];
             auto pixel = gif_file->SColorMap->Colors[src_color_index];
             auto dst_pixel_index = (y + src->ImageDesc.Top) * origin.width + (x + src->ImageDesc.Left);
