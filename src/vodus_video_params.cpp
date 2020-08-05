@@ -35,7 +35,7 @@ Video_Params default_video_params() {
     params.nickname_color    = {255, 100, 100, 255};
     params.text_color        = {200, 200, 200, 255};
     params.bitrate           = 400'000;
-    params.font              = "";
+    params.font              = ""_sv;
     params.messages_limit     = VODUS_MESSAGES_CAPACITY;
     return params;
 }

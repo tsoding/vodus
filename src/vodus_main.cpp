@@ -460,9 +460,9 @@ struct Args
 };
 
 template <typename Integer>
-Integer parse_integer_flag(const char *flag, const char *value)
+Integer parse_integer_flag(String_View flag, String_View value)
 {
-    auto integer = cstr_as_string_view(value).as_integer<size_t>();
+    auto integer = value.as_integer<size_t>();
     if (!integer.has_value) {
         println(stderr, "`", flag, "` expected a number, but `", value, "` is not a number! D:");
         abort();
@@ -470,9 +470,9 @@ Integer parse_integer_flag(const char *flag, const char *value)
     return integer.unwrap;
 }
 
-Pixel32 parse_color_flag(const char *flag, const char *value)
+Pixel32 parse_color_flag(String_View flag, String_View value)
 {
-    auto color = hexstr_as_pixel32(cstr_as_string_view(flag));
+    auto color = hexstr_as_pixel32(value);
     if (!color.has_value) {
         println(stderr, "`", flag, "` expected a color, but `", value, "` is not a color! D:");
         abort();
@@ -480,30 +480,49 @@ Pixel32 parse_color_flag(const char *flag, const char *value)
     return color.unwrap;
 }
 
-void patch_video_params_from_flag(Video_Params *params, const char *flag, const char *value)
-{
-    auto flag_sv = cstr_as_string_view(flag);
-    flag_sv.chop(2);
+void patch_video_params_from_flag(Video_Params *params, String_View flag, String_View value);
 
-    if (flag_sv == "fps"_sv) {
+void patch_video_params_from_file(Video_Params *params, String_View filepath)
+{
+    auto filepath_cstr = string_view_as_cstr(filepath);
+    defer(free((void*) filepath_cstr));
+
+    auto content = read_file_as_string_view(filepath_cstr);
+    if (!content.has_value) {
+        println(stderr, "Could not read `", filepath, "`");
+        abort();
+    }
+
+    while (content.unwrap.count > 0) {
+        auto line = content.unwrap.chop_by_delim('\n').trim();
+        auto flag = line.chop_by_delim('=').trim();
+        auto value = line.trim();
+
+        patch_video_params_from_flag(params, flag, value);
+    }
+}
+
+void patch_video_params_from_flag(Video_Params *params, String_View flag, String_View value)
+{
+    if (flag == "fps"_sv) {
         params->fps = parse_integer_flag<size_t>(flag, value);
-    } else if (flag_sv == "width"_sv) {
+    } else if (flag == "width"_sv) {
         params->width = parse_integer_flag<size_t>(flag, value);
-    } else if (flag_sv == "height"_sv) {
+    } else if (flag == "height"_sv) {
         params->height = parse_integer_flag<size_t>(flag, value);
-    } else if (flag_sv == "font_size"_sv || flag_sv == "font-size"_sv) {
+    } else if (flag == "font_size"_sv || flag == "font-size"_sv) {
         params->font_size = parse_integer_flag<size_t>(flag, value);
-    } else if (flag_sv == "background_color"_sv || flag_sv == "background-color"_sv) {
+    } else if (flag == "background_color"_sv || flag == "background-color"_sv) {
         params->background_color = parse_color_flag(flag, value);
-    } else if (flag_sv == "nickname_color"_sv || flag_sv == "nickname-color"_sv) {
+    } else if (flag == "nickname_color"_sv || flag == "nickname-color"_sv) {
         params->nickname_color = parse_color_flag(flag, value);
-    } else if (flag_sv == "text_color"_sv || flag_sv == "text-color"_sv) {
+    } else if (flag == "text_color"_sv || flag == "text-color"_sv) {
         params->text_color = parse_color_flag(flag, value);
-    } else if (flag_sv == "bitrate"_sv) {
+    } else if (flag == "bitrate"_sv) {
         params->bitrate = parse_integer_flag<int>(flag, value);
-    } else if (flag_sv == "font"_sv) {
+    } else if (flag == "font"_sv) {
         params->font = value;
-    } else if (flag_sv == "messages_limit"_sv || flag_sv == "messages-limit"_sv) {
+    } else if (flag == "messages_limit"_sv || flag == "messages-limit"_sv) {
         params->messages_limit = parse_integer_flag<size_t>(flag, value);
     } else {
         println(stderr, "Unknown flag `", flag, "`");
@@ -514,17 +533,24 @@ void patch_video_params_from_flag(Video_Params *params, const char *flag, const 
 void patch_video_params_from_args(Video_Params *params, Args *args)
 {
     while (!args->empty()) {
-        auto flag = args->pop();
+        auto flag = cstr_as_string_view(args->pop());
+        flag.chop(2);
+
         if (args->empty()) {
             println(stderr, "[ERROR] no parameter for flag `", flag, "` found");
             usage(stderr);
             abort();
         }
-        auto value = args->pop();
+        auto value = cstr_as_string_view(args->pop());
 
-        patch_video_params_from_flag(params, flag, value);
+        if (flag == "config"_sv) {
+            patch_video_params_from_file(params, value);
+        } else {
+            patch_video_params_from_flag(params, flag, value);
+        }
     }
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -563,7 +589,8 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    const char *face_filepath = params.font;
+    const char *face_filepath = string_view_as_cstr(params.font);
+    defer(free((void*) face_filepath));
 
     FT_Face face;
     error = FT_New_Face(library,
