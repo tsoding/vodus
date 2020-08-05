@@ -213,55 +213,33 @@ Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
     return {true, result};
 }
 
-Image32 load_image32_from_savedimage(GifFileType *gif_file,
-                                     size_t index,
-                                     GraphicsControlBlock gcb,
-                                     size_t size)
+void slap_savedimage_to_image32(Image32 vscreen,
+                                ColorMapObject *screen_color_map,
+                                SavedImage *saved_image,
+                                GraphicsControlBlock gcb)
 {
-    assert(gif_file);
-    assert(gif_file->SColorMap);
-    assert(gif_file->SColorMap->BitsPerPixel <= 8);
-    assert(!gif_file->SColorMap->SortFlag);
+    assert(screen_color_map);
+    assert(screen_color_map->BitsPerPixel <= 8);
+    assert(!screen_color_map->SortFlag);
 
-    SavedImage *src = &gif_file->SavedImages[index];
+    SavedImage *src = saved_image;
 
     assert(src->ImageDesc.Left >= 0);
     assert(src->ImageDesc.Top >= 0);
 
-    Image32 origin = {};
-    origin.width  = gif_file->SWidth;
-    origin.height = gif_file->SHeight;
-    origin.pixels = new Pixel32[origin.width * origin.height];
-    memset(origin.pixels, 0, sizeof(*origin.pixels) * origin.width * origin.height);
-    defer(delete[] origin.pixels);
-
     for (size_t y = 0; (int) y < src->ImageDesc.Height; ++y) {
         for (size_t x = 0; (int) x < src->ImageDesc.Width; ++x) {
             auto src_color_index = src->RasterBits[y * src->ImageDesc.Width + x];
-            auto pixel = gif_file->SColorMap->Colors[src_color_index];
-            auto dst_pixel_index = (y + src->ImageDesc.Top) * origin.width + (x + src->ImageDesc.Left);
+            auto pixel = screen_color_map->Colors[src_color_index];
+            auto dst_pixel_index = (y + src->ImageDesc.Top) * vscreen.width + (x + src->ImageDesc.Left);
             if (src_color_index != gcb.TransparentColor) {
-                origin.pixels[dst_pixel_index].r = pixel.Red;
-                origin.pixels[dst_pixel_index].g = pixel.Green;
-                origin.pixels[dst_pixel_index].b = pixel.Blue;
-                origin.pixels[dst_pixel_index].a = 255;
-            } else {
-                origin.pixels[dst_pixel_index] = {};
+                vscreen.pixels[dst_pixel_index].r = pixel.Red;
+                vscreen.pixels[dst_pixel_index].g = pixel.Green;
+                vscreen.pixels[dst_pixel_index].b = pixel.Blue;
+                vscreen.pixels[dst_pixel_index].a = 255;
             }
         }
     }
-
-    const float emote_ratio = (float) origin.width / (float) origin.height;
-    Image32 result = {};
-    result.height = (int) size;
-    result.width = (int) floorf(result.height * emote_ratio);
-    result.pixels = new Pixel32[result.width * result.height];
-
-    stbir_resize_uint8((unsigned char *) origin.pixels, origin.width, origin.height, 0,
-                       (unsigned char *) result.pixels, result.width, result.height, 0,
-                       4);
-
-    return result;
 }
 
 Animat32 load_animat32_from_gif(const char *filepath, size_t size)
@@ -279,14 +257,31 @@ Animat32 load_animat32_from_gif(const char *filepath, size_t size)
     }
 
     GraphicsControlBlock gcb = {};
+    Image32 vscreen = {};
+    vscreen.width = gif_file->SWidth;
+    vscreen.height = gif_file->SHeight;
+    vscreen.pixels = new Pixel32[vscreen.width * vscreen.height];
+    memset(vscreen.pixels, 0, sizeof(Pixel32) * vscreen.width * vscreen.height);
+    defer(delete[] vscreen.pixels);
+
+    Image32 prev_vscreen = {};
+    prev_vscreen.width = gif_file->SWidth;
+    prev_vscreen.height = gif_file->SHeight;
+    prev_vscreen.pixels = new Pixel32[prev_vscreen.width * prev_vscreen.height];
+    memset(prev_vscreen.pixels, 0, sizeof(Pixel32) * prev_vscreen.width * prev_vscreen.height);
+    defer(delete[] prev_vscreen.pixels);
 
     Animat32 result = {};
     result.count = gif_file->ImageCount;
     result.frames = new Image32[result.count];
     result.frame_delays = new int[result.count];
 
+    const float emote_ratio = (float) vscreen.width / (float) vscreen.height;
     for (size_t index = 0; index < result.count; ++index) {
+        memcpy(prev_vscreen.pixels, vscreen.pixels, sizeof(Pixel32) * vscreen.width * vscreen.height);
+
         int ok = DGifSavedExtensionToGCB(gif_file, index, &gcb);
+
         if (!ok) {
             println(stderr, "[ERROR] Could not retrieve Graphics Control Block from `",
                     filepath, "` on index ", index);
@@ -295,23 +290,48 @@ Animat32 load_animat32_from_gif(const char *filepath, size_t size)
 
         result.frame_delays[index] = gcb.DelayTime;
 
-        // TODO(#93): load_animat32_from_gif does not work on some gifs
-        // if (gif_file->SavedImages[index].ImageDesc.Left == 0 &&
-        //     gif_file->SavedImages[index].ImageDesc.Top == 0) {
-          result.frames[index] = load_image32_from_savedimage(
-              gif_file,
-              index,
-              gcb,
-              size
-              //////////////////////////////
-              // &gif_file->SavedImages[index],
-              // gif_file->SColorMap,
-              // gcb,
-              // size
-              );
-        // } else {
-        //     // println(stderr, filepath);
-        // }
+        slap_savedimage_to_image32(vscreen,
+                                   gif_file->SColorMap,
+                                   &gif_file->SavedImages[index],
+                                   gcb);
+
+        result.frames[index].height = (int) size;
+        result.frames[index].width = (int) floorf(result.frames[index].height * emote_ratio);
+        result.frames[index].pixels = new Pixel32[result.frames[index].width * result.frames[index].height];
+
+        stbir_resize_uint8((unsigned char *) vscreen.pixels, vscreen.width, vscreen.height, 0,
+                           (unsigned char *) result.frames[index].pixels,
+                           result.frames[index].width,
+                           result.frames[index].height,
+                           0,
+                           4);
+
+        switch (gcb.DisposalMode) {
+        case DISPOSE_DO_NOT:
+            break;
+        case DISPOSE_BACKGROUND:
+            // NOTE: This is a little bit of cheating. I think we are
+            // supposed to fill up the virtual screen with
+            // gif_file->SBackGroundColor. But the problem is that
+            // it's unclear how to handle transparency in that case,
+            // because transparency is defined per frame in
+            // gif_file->SavedImages[index]. So in some frames
+            // gif_file->SBackGroundColor is transparent, in some
+            // frames it is not. So we decided to ignore
+            // gif_file->SBackGroundColor and fill up the virtual
+            // screen with transparency always.
+            //
+            // I have a feeling that majority of other software do the
+            // same thing as well. (we probably wanna check that).
+            memset(vscreen.pixels, 0, sizeof(Pixel32) * vscreen.width * vscreen.height);
+            break;
+        case DISPOSE_PREVIOUS:
+            memcpy(vscreen.pixels, prev_vscreen.pixels, sizeof(Pixel32) * vscreen.width * vscreen.height);
+            break;
+        default:
+            assert(0 && "Unsupported gif frame disposal mode");
+        }
+
     }
 
     DGifCloseFile(gif_file, &error);
