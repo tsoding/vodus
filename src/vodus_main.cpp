@@ -440,152 +440,145 @@ void usage(FILE *stream)
                     "                                    Examples: ffffffff, 000000FF, A0eA0000");
 }
 
-Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
+struct Args
 {
-    if (hexstr.count != 8) return {};
+    int argc;
+    char **argv;
 
-    Pixel32 result = {};
-    unwrap_into(result.r, hexstr.subview(0, 2).from_hex<uint8_t>());
-    unwrap_into(result.g, hexstr.subview(2, 2).from_hex<uint8_t>());
-    unwrap_into(result.b, hexstr.subview(4, 2).from_hex<uint8_t>());
-    unwrap_into(result.a, hexstr.subview(6, 2).from_hex<uint8_t>());
-    return {true, result};
+    char *pop()
+    {
+        char *result = *argv;
+        argv += 1;
+        argc -= 1;
+        return result;
+    }
+
+    bool empty()
+    {
+        return argc == 0;
+    }
+};
+
+template <typename Integer>
+Integer parse_integer_flag(String_View flag, String_View value)
+{
+    auto integer = value.as_integer<size_t>();
+    if (!integer.has_value) {
+        println(stderr, "`", flag, "` expected a number, but `", value, "` is not a number! D:");
+        abort();
+    }
+    return integer.unwrap;
 }
 
-int main_()
+Pixel32 parse_color_flag(String_View flag, String_View value)
 {
-    void *iterator = NULL;
-    const AVCodec *codec = NULL;
-    println(stdout, "Probably available codecs:");
-    while ((codec = av_codec_iterate(&iterator))) {
-        if (avcodec_find_encoder_by_name(codec->name)) {
-            println(stdout, "  ", codec->name);
+    auto color = hexstr_as_pixel32(value);
+    if (!color.has_value) {
+        println(stderr, "`", flag, "` expected a color, but `", value, "` is not a color! D:");
+        abort();
+    }
+    return color.unwrap;
+}
+
+void patch_video_params_from_flag(Video_Params *params, String_View flag, String_View value);
+
+void patch_video_params_from_file(Video_Params *params, String_View filepath)
+{
+    auto filepath_cstr = string_view_as_cstr(filepath);
+    defer(free((void*) filepath_cstr));
+
+    auto content = read_file_as_string_view(filepath_cstr);
+    if (!content.has_value) {
+        println(stderr, "Could not read `", filepath, "`");
+        abort();
+    }
+
+    while (content.unwrap.count > 0) {
+        auto line = content.unwrap.chop_by_delim('\n').trim();
+        auto flag = line.chop_by_delim('=').trim();
+        auto value = line.trim();
+
+        patch_video_params_from_flag(params, flag, value);
+    }
+}
+
+void patch_video_params_from_flag(Video_Params *params, String_View flag, String_View value)
+{
+    if (flag == "fps"_sv) {
+        params->fps = parse_integer_flag<size_t>(flag, value);
+    } else if (flag == "width"_sv) {
+        params->width = parse_integer_flag<size_t>(flag, value);
+    } else if (flag == "height"_sv) {
+        params->height = parse_integer_flag<size_t>(flag, value);
+    } else if (flag == "font_size"_sv || flag == "font-size"_sv) {
+        params->font_size = parse_integer_flag<size_t>(flag, value);
+    } else if (flag == "background_color"_sv || flag == "background-color"_sv) {
+        params->background_color = parse_color_flag(flag, value);
+    } else if (flag == "nickname_color"_sv || flag == "nickname-color"_sv) {
+        params->nickname_color = parse_color_flag(flag, value);
+    } else if (flag == "text_color"_sv || flag == "text-color"_sv) {
+        params->text_color = parse_color_flag(flag, value);
+    } else if (flag == "bitrate"_sv) {
+        params->bitrate = parse_integer_flag<int>(flag, value);
+    } else if (flag == "font"_sv) {
+        params->font = value;
+    } else if (flag == "messages_limit"_sv || flag == "messages-limit"_sv) {
+        params->messages_limit = parse_integer_flag<size_t>(flag, value);
+    } else {
+        println(stderr, "Unknown flag `", flag, "`");
+        abort();
+    }
+}
+
+void patch_video_params_from_args(Video_Params *params, Args *args)
+{
+    while (!args->empty()) {
+        auto flag = cstr_as_string_view(args->pop());
+        flag.chop(2);
+
+        if (args->empty()) {
+            println(stderr, "[ERROR] no parameter for flag `", flag, "` found");
+            usage(stderr);
+            abort();
+        }
+        auto value = cstr_as_string_view(args->pop());
+
+        if (flag == "config"_sv) {
+            patch_video_params_from_file(params, value);
+        } else {
+            patch_video_params_from_flag(params, flag, value);
         }
     }
-    return 0;
 }
+
 
 int main(int argc, char *argv[])
 {
-    const char *log_filepath = nullptr;
-    const char *face_filepath = nullptr;
-    const char *output_filepath = nullptr;
-    size_t messages_limit = VODUS_MESSAGES_CAPACITY;
+    Args args = {argc, argv};
+    args.pop();                 // skip program name;
 
-    Video_Params params = {};
-    params.fps               = 60;
-    params.width             = 1920;
-    params.height            = 1080;
-    params.font_size         = 128;
-    params.background_color = {32, 32, 32, 255};
-    params.nickname_color   = {255, 100, 100, 255};
-    params.text_color       = {200, 200, 200, 255};
-    params.bitrate           = 400'000;
-
-    for (int i = 1; i < argc;) {
-        const auto arg = cstr_as_string_view(argv[i]);
-
-#define BEGIN_PARAMETER(name)                                           \
-        if (i + 1 >= argc) {                                            \
-            println(stderr, "Error: No argument is provided for `", arg, "`"); \
-            usage(stderr);                                              \
-            exit(1);                                                    \
-        }                                                               \
-        const auto name = argv[i + 1];
-
-#define END_PARAMETER i += 2
-
-#define INTEGER_PARAMETER(type, variable)                                 \
-        do {                                                              \
-            BEGIN_PARAMETER(cstr);                                        \
-            auto maybe = cstr_as_string_view(cstr).as_integer<type>();    \
-            if (!maybe.has_value) {                                       \
-                println(stderr, "Error: `", cstr, "` is not an integer"); \
-                usage(stderr);                                            \
-                exit(1);                                                  \
-            }                                                             \
-            variable = maybe.unwrap;                                      \
-            END_PARAMETER;                                                \
-        } while (0)
-
-#define CSTR_PARAMETER(variable)                \
-        do {                                    \
-            BEGIN_PARAMETER(cstr);              \
-            variable = cstr;                    \
-            END_PARAMETER;                      \
-        } while (0)
-
-#define COLOR_PARAMETER(place)                                          \
-        do {                                                            \
-            BEGIN_PARAMETER(cstr);                                      \
-            auto maybe = hexstr_as_pixel32(cstr_as_string_view(cstr));  \
-            if (!maybe.has_value) {                                     \
-                println(stderr, "Error: `", cstr, "` is not a hexstr of a color"); \
-                usage(stderr);                                          \
-                exit(1);                                                \
-            }                                                           \
-            place = maybe.unwrap;                                       \
-            END_PARAMETER;                                              \
-        } while (0)
-
-        if (arg == "--help"_sv || arg == "-h"_sv)  {
-            usage(stdout);
-            exit(0);
-        } else if (arg == "--font"_sv) {
-            CSTR_PARAMETER(face_filepath);
-        } else if (arg == "--output"_sv || arg == "-o"_sv) {
-            CSTR_PARAMETER(output_filepath);
-        } else if (arg == "--limit"_sv) {
-            INTEGER_PARAMETER(size_t, messages_limit);
-        } else if (arg == "--width"_sv) {
-            INTEGER_PARAMETER(size_t, params.width);
-        } else if (arg == "--height"_sv) {
-            INTEGER_PARAMETER(size_t, params.height);
-        } else if (arg == "--fps"_sv) {
-            INTEGER_PARAMETER(size_t, params.fps);
-        } else if (arg == "--font-size"_sv) {
-            INTEGER_PARAMETER(size_t, params.font_size);
-        } else if (arg == "--background-color"_sv) {
-            COLOR_PARAMETER(params.background_color);
-        } else if (arg == "--nickname-color"_sv) {
-            COLOR_PARAMETER(params.nickname_color);
-        } else if (arg == "--text-color"_sv) {
-            COLOR_PARAMETER(params.text_color);
-        } else if (arg == "--bitrate"_sv) {
-            INTEGER_PARAMETER(int, params.bitrate);
-        } else if (arg.has_prefix("-"_sv)) {
-            println(stderr, "Error: Unknown flag `", arg, "`");
-            usage(stderr);
-            exit(1);
-        } else {
-            // TODO(#68): multiple input log files support?
-            if (log_filepath != nullptr) {
-                println(stderr, "Error: Input log file is provided twice");
-                usage(stderr);
-                exit(1);
-            }
-
-            log_filepath = argv[i];
-
-            i += 1;
-        }
-
-#undef CSTR_PARAMETER
-#undef INTEGER_PARAMETER
-#undef END_PARAMETER
-#undef BEGIN_PARAMETER
+    if (args.empty()) {
+        println(stderr, "[ERROR] Input filename is not provided");
+        usage(stderr);
+        abort();
     }
+    const char *input_filepath = args.pop();
+
+    if (args.empty()) {
+        println(stderr, "[ERROR] Output filename is not provided");
+        usage(stderr);
+        abort();
+    }
+    const char *output_filepath = args.pop();
+
+    Video_Params params = default_video_params();
+
+    patch_video_params_from_args(&params, &args);
 
     println(stdout, "params = ", params);
 
     if (params.width % 2 != 0 || params.height % 2 != 0) {
         println(stderr, "Error: resolution must be multiple of two!");
-        exit(1);
-    }
-
-    if (face_filepath == nullptr) {
-        println(stderr, "Error: Font was not provided. Please use `--font` flag.");
-        usage(stderr);
         exit(1);
     }
 
@@ -595,6 +588,9 @@ int main(int argc, char *argv[])
         println(stderr, "Could not initialize FreeType2");
         exit(1);
     }
+
+    const char *face_filepath = string_view_as_cstr(params.font);
+    defer(free((void*) face_filepath));
 
     FT_Face face;
     error = FT_New_Face(library,
@@ -680,14 +676,14 @@ int main(int argc, char *argv[])
 
     // TODO(#35): log is not retrived directly from the Twitch API
     //   See https://github.com/PetterKraabol/Twitch-Chat-Downloader
-    if (log_filepath == nullptr) {
+    if (input_filepath == nullptr) {
         println(stderr, "Input log file is not provided");
         usage(stderr);
         exit(1);
     }
-    auto input = read_file_as_string_view(log_filepath);
+    auto input = read_file_as_string_view(input_filepath);
     if (!input.has_value) {
-        println(stderr, "Could not read file `", log_filepath, "`");
+        println(stderr, "Could not read file `", input_filepath, "`");
         abort();
     }
     while (input.unwrap.count > 0) {
@@ -698,7 +694,7 @@ int main(int argc, char *argv[])
         messages[messages_size].message = message.trim();
         messages_size++;
     }
-    messages_size = min(messages_size, messages_limit);
+    messages_size = min(messages_size, params.messages_limit);
     std::sort(messages, messages + messages_size,
               [](const Message &m1, const Message &m2) {
                   return m1.timestamp < m2.timestamp;

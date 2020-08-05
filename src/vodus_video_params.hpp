@@ -11,8 +11,13 @@ struct Video_Params
     Pixel32 nickname_color;
     Pixel32 text_color;
     int bitrate;
+    String_View font;
+    size_t messages_limit;
 };
 
 void print1(FILE *stream, Video_Params params);
+
+Video_Params default_video_params();
+Video_Params video_params_from_file(const char *filepath);
 
 #endif  // VODUS_VIDEO_PARAMS_HPP_

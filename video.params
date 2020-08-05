@@ -1,0 +1,7 @@
+font = assets/ComicNeue_Bold.otf
+font_size = 46
+fps = 30
+width = 704
+height = 576
+limit = 20
+bitrate = 6000000

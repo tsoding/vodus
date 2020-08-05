@@ -102,14 +102,6 @@ String_View file_extension(String_View filename)
     return ext;
 }
 
-const char *string_view_as_cstr(String_View sv)
-{
-    char *cstr = (char *) malloc(sv.count + 1);
-    if (!cstr) return cstr;
-    memcpy(cstr, sv.data, sv.count);
-    cstr[sv.count] = '\0';
-    return cstr;
-}
 
 Emote load_gif_emote(String_View file_path, size_t size)
 {

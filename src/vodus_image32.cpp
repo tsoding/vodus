@@ -201,7 +201,18 @@ void slap_image32_onto_image32(Image32 dst, Image32 src,
     }
 }
 
-// TODO(#97): gif rendering does not handle disposal flags correctly
+Maybe<Pixel32> hexstr_as_pixel32(String_View hexstr)
+{
+    if (hexstr.count != 8) return {};
+
+    Pixel32 result = {};
+    unwrap_into(result.r, hexstr.subview(0, 2).from_hex<uint8_t>());
+    unwrap_into(result.g, hexstr.subview(2, 2).from_hex<uint8_t>());
+    unwrap_into(result.b, hexstr.subview(4, 2).from_hex<uint8_t>());
+    unwrap_into(result.a, hexstr.subview(6, 2).from_hex<uint8_t>());
+    return {true, result};
+}
+
 Image32 load_image32_from_savedimage(GifFileType *gif_file,
                                      size_t index,
                                      GraphicsControlBlock gcb,
@@ -224,8 +235,8 @@ Image32 load_image32_from_savedimage(GifFileType *gif_file,
     memset(origin.pixels, 0, sizeof(*origin.pixels) * origin.width * origin.height);
     defer(delete[] origin.pixels);
 
-    for (size_t y = 0; y < src->ImageDesc.Height; ++y) {
-        for (size_t x = 0; x < src->ImageDesc.Width; ++x) {
+    for (size_t y = 0; (int) y < src->ImageDesc.Height; ++y) {
+        for (size_t x = 0; (int) x < src->ImageDesc.Width; ++x) {
             auto src_color_index = src->RasterBits[y * src->ImageDesc.Width + x];
             auto pixel = gif_file->SColorMap->Colors[src_color_index];
             auto dst_pixel_index = (y + src->ImageDesc.Top) * origin.width + (x + src->ImageDesc.Left);

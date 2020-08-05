@@ -13,9 +13,6 @@ EMOTE_DOWNLOADER_PKGS=libcurl
 EMOTE_DOWNLOADER_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb `pkg-config --cflags $(EMOTE_DOWNLOADER_PKGS)`
 EMOTE_DOWNLOADER_LIBS=`pkg-config --libs $(EMOTE_DOWNLOADER_PKGS)`
 
-# TODO(#88): render config file
-RENDER_ARGS=--font assets/ComicNeue_Bold.otf --output output.mpeg --font-size 46 --fps 30 --width 704 --height 576 --limit 20 sample.txt --bitrate 6000000
-
 .PHONY: all
 all: vodus.release vodus.debug emote_downloader Makefile
 
@@ -30,8 +27,8 @@ emote_downloader: src/emote_downloader.cpp $(wildcard src/core*.cpp)
 
 .PHONY: render
 render: vodus.debug
-	./vodus.debug $(RENDER_ARGS)
+	./vodus.debug sample.txt output.mpeg --config video.conf
 
 .PHONY: render.release
 render.release: vodus.release
-	./vodus.release $(RENDER_ARGS)
+	./vodus.release sample.txt output.mpeg --config video.conf
