@@ -11,7 +11,7 @@ struct Video_Params
     Pixel32 nickname_color;
     Pixel32 text_color;
     int bitrate;
-    String_View font;
+    const char *font;
     size_t messages_limit;
 };
 
