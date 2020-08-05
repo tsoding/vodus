@@ -551,7 +551,6 @@ void patch_video_params_from_args(Video_Params *params, Args *args)
     }
 }
 
-
 int main(int argc, char *argv[])
 {
     Args args = {argc, argv};
