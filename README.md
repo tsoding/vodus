@@ -24,6 +24,11 @@ $ sudo apt-get install nasm libfreetype6-dev libcurl4-openssl-dev
 $ nix-shell
 ```
 
+#### FreeBSD
+```console
+# pkg install nasm xmlto freetype2 curl openssl gcc gmake
+```
+
 ### Build Third Party dependencies
 
 Needs to be done only once.
