@@ -7,7 +7,7 @@ FFMPEG_VERSION=4.3
 GIFLIB_VERSION=5.2.1
 MAKE=make
 
-# TODO: ./build_third_party.sh does not respect other BSD's or Darwin that might not use GNU make
+# TODO(#102): ./build_third_party.sh does not respect other BSD's or Darwin that might not use GNU make
 # Testing is required and the conditions here may have to be changed accordingly.
 if [ `uname -s` = "FreeBSD" ]; then
 	echo INFO : FreeBSD detected. Setting MAKE to gmake.
