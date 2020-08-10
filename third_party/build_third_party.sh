@@ -9,7 +9,7 @@ MAKE=make
 
 # TODO: ./build_third_party.sh does not respect other BSD's or Darwin that might not use GNU make
 # Testing is required and the conditions here may have to be changed accordingly.
-if [ `uname -s` == "FreeBSD" ]; then
+if [ `uname -s` = "FreeBSD" ]; then
 	echo INFO : FreeBSD detected. Setting MAKE to gmake.
 	if test -x "/usr/local/bin/gmake"; then
 		MAKE=gmake
