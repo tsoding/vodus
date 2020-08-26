@@ -61,6 +61,7 @@ struct Message
     String_View nickname;
     String_View message;
 
+    /// returns amount of rows the message took
     int height(FT_Face face,
                Emote_Cache *emote_cache,
                Video_Params params)
@@ -70,20 +71,21 @@ struct Message
         return render(dummy, face, emote_cache, params, 0);
     }
 
+    /// returns amount of rows the message took
     int render(Image32 surface, FT_Face face,
                Emote_Cache *emote_cache,
                Video_Params params,
-               int y)
+               int row)
     {
+        int result = 1;
         int pen_x = 0;
-        int pen_y = y;
+        int pen_y = (row + 1) * params.font_size;
 
-        slap_text_onto_image32_wrapped(surface,
-                                       face,
-                                       nickname,
-                                       params.nickname_color,
-                                       &pen_x, &pen_y,
-                                       params.font_size);
+        slap_text_onto_image32(surface,
+                               face,
+                               nickname,
+                               params.nickname_color,
+                               &pen_x, &pen_y);
 
 
         auto text = message.trim();
@@ -98,15 +100,14 @@ struct Message
             nick_text_sep = " ";
         }
 
-        slap_text_onto_image32_wrapped(surface,
-                                       face,
-                                       nick_text_sep,
-                                       params.nickname_color,
-                                       &pen_x, &pen_y,
-                                       params.font_size);
+        slap_text_onto_image32(surface,
+                               face,
+                               nick_text_sep,
+                               params.nickname_color,
+                               &pen_x, &pen_y);
 
         while (text.count > 0) {
-            auto word = text.chop_word();
+            auto word = text.chop_word().trim();
             auto maybe_emote = emote_cache->emote_by_name(word);
 
             // TODO(#23): Twitch emotes are not rendered
@@ -116,29 +117,37 @@ struct Message
                 if (pen_x + emote.width() >= (int)surface.width) {
                     pen_x = 0;
                     pen_y += params.font_size;
+                    // WRAPPED!
+                    result += 1;
                 }
 
                 emote.slap_onto_image32(surface, pen_x, pen_y - emote.height());
                 pen_x += emote.width();
             } else {
-                slap_text_onto_image32_wrapped(surface,
-                                               face,
-                                               word,
-                                               text_color,
-                                               &pen_x, &pen_y,
-                                               params.font_size);
+                if (slap_text_onto_image32_wrapped(surface,
+                                                   face,
+                                                   word,
+                                                   text_color,
+                                                   &pen_x, &pen_y,
+                                                   params.font_size)) {
+                    // WRAPPED!
+                    result += 1;
+                }
             }
 
-            slap_text_onto_image32_wrapped(surface,
-                                           face,
-                                           " ",
-                                           text_color,
-                                           &pen_x, &pen_y,
-                                           params.font_size);
+            if (text.count > 0 &&
+                slap_text_onto_image32_wrapped(surface,
+                                               face,
+                                               " ",
+                                               text_color,
+                                               &pen_x, &pen_y,
+                                               params.font_size)) {
+                // WRAPPED!
+                result += 1;
+            }
         }
 
-        assert(pen_y >= y);
-        return pen_y - y + params.font_size;
+        return result;
     }
 };
 
@@ -308,7 +317,7 @@ struct Message_Entry_Buffer2
     {
         while (message_queue.count > 0) {
             auto message_height = message_queue.first().height(face, emote_cache, params);
-            if (message_height > fabsf(begin)) return;
+            if (message_height >= abs(begin)) return;
             message_queue.dequeue();
             begin += message_height;
             height -= message_height;
@@ -321,8 +330,9 @@ struct Message_Entry_Buffer2
               Video_Params params)
     {
         const auto message_height = message.height(face, emote_cache, params);
+        const int rows_count = params.height / params.font_size;
 
-        if (begin + height + message_height >= (int) params.height) {
+        if (begin + height + message_height > rows_count) {
             begin -= message_height;
         }
 
@@ -340,14 +350,13 @@ struct Message_Entry_Buffer2
                 Emote_Cache *emote_cache,
                 Video_Params params)
     {
-        println(stdout, "begin = ", begin, ", height = ", height);
-        int y = params.font_size + begin;
+        int row = begin;
         for (size_t i = 0; i < message_queue.count; ++i) {
-            y += message_queue[i].render(surface,
-                                         face,
-                                         emote_cache,
-                                         params,
-                                         y);
+            row += message_queue[i].render(surface,
+                                           face,
+                                           emote_cache,
+                                           params,
+                                           row);
         }
     }
 };
