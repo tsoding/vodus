@@ -60,6 +60,86 @@ struct Message
     time_t timestamp;
     String_View nickname;
     String_View message;
+
+    int height(FT_Face face,
+               Emote_Cache *emote_cache,
+               Video_Params params)
+    {
+        Image32 dummy = {};
+        dummy.width = params.width;
+        return render(dummy, face, emote_cache, params, 0);
+    }
+
+    int render(Image32 surface, FT_Face face,
+               Emote_Cache *emote_cache,
+               Video_Params params,
+               int y)
+    {
+        int pen_x = 0;
+        int pen_y = y;
+
+        slap_text_onto_image32_wrapped(surface,
+                                       face,
+                                       nickname,
+                                       params.nickname_color,
+                                       &pen_x, &pen_y,
+                                       params.font_size);
+
+
+        auto text = message.trim();
+        auto text_color = params.text_color;
+        const char *nick_text_sep = ": ";
+
+        const auto slash_me = "/me"_sv;
+
+        if (text.has_prefix(slash_me)) {
+            text.chop(slash_me.count);
+            text_color = params.nickname_color;
+            nick_text_sep = " ";
+        }
+
+        slap_text_onto_image32_wrapped(surface,
+                                       face,
+                                       nick_text_sep,
+                                       params.nickname_color,
+                                       &pen_x, &pen_y,
+                                       params.font_size);
+
+        while (text.count > 0) {
+            auto word = text.chop_word();
+            auto maybe_emote = emote_cache->emote_by_name(word);
+
+            // TODO(#23): Twitch emotes are not rendered
+            if (maybe_emote.has_value) {
+                auto emote = maybe_emote.unwrap;
+
+                if (pen_x + emote.width() >= (int)surface.width) {
+                    pen_x = 0;
+                    pen_y += params.font_size;
+                }
+
+                emote.slap_onto_image32(surface, pen_x, pen_y - emote.height());
+                pen_x += emote.width();
+            } else {
+                slap_text_onto_image32_wrapped(surface,
+                                               face,
+                                               word,
+                                               text_color,
+                                               &pen_x, &pen_y,
+                                               params.font_size);
+            }
+
+            slap_text_onto_image32_wrapped(surface,
+                                           face,
+                                           " ",
+                                           text_color,
+                                           &pen_x, &pen_y,
+                                           params.font_size);
+        }
+
+        assert(pen_y >= y);
+        return pen_y - y + params.font_size;
+    }
 };
 
 Message messages[VODUS_MESSAGES_CAPACITY];
@@ -216,6 +296,63 @@ struct Queue
 };
 
 template <size_t Capacity>
+struct Message_Entry_Buffer2
+{
+    Queue<Message, Capacity> message_queue;
+    int height;
+    int begin;
+
+    void normalize_queue(FT_Face face,
+                         Emote_Cache *emote_cache,
+                         Video_Params params)
+    {
+        while (message_queue.count > 0) {
+            auto message_height = message_queue.first().height(face, emote_cache, params);
+            if (message_height > fabsf(begin)) return;
+            message_queue.dequeue();
+            begin += message_height;
+            height -= message_height;
+        }
+    }
+
+    void push(Message message,
+              FT_Face face,
+              Emote_Cache *emote_cache,
+              Video_Params params)
+    {
+        const auto message_height = message.height(face, emote_cache, params);
+
+        if (begin + height + message_height >= (int) params.height) {
+            begin -= message_height;
+        }
+
+        message_queue.enqueue(message);
+        height += message_height;
+    }
+
+    void update(float dt, FT_Face face, Emote_Cache *emote_cache, Video_Params params)
+    {
+        normalize_queue(face, emote_cache, params);
+    }
+
+    void render(Image32 surface,
+                FT_Face face,
+                Emote_Cache *emote_cache,
+                Video_Params params)
+    {
+        println(stdout, "begin = ", begin, ", height = ", height);
+        int y = params.font_size + begin;
+        for (size_t i = 0; i < message_queue.count; ++i) {
+            y += message_queue[i].render(surface,
+                                         face,
+                                         emote_cache,
+                                         params,
+                                         y);
+        }
+    }
+};
+
+template <size_t Capacity>
 struct Message_Entry_Buffer
 {
     Queue<Message_Entry, Capacity> entering;
@@ -299,7 +436,7 @@ struct Message_Entry_Buffer
     }
 };
 
-Message_Entry_Buffer<1024> message_entry_buffer = {};
+Message_Entry_Buffer2<1024> message_entry_buffer = {};
 
 void sample_chat_log_animation(FT_Face face,
                                Frame_Encoder *encoder,
@@ -324,15 +461,9 @@ void sample_chat_log_animation(FT_Face face,
     const size_t TRAILING_BUFFER_SEC = 2;
     assert(messages_size > 0);
     const float total_t = messages[messages_size - 1].timestamp + TRAILING_BUFFER_SEC;
-    float h = 0.0f;
     for (; message_end < messages_size; ++frame_index) {
         if (message_cooldown <= 0.0f) {
-            message_entry_buffer.push(messages[message_end]);
-            if (h >= params.height) {
-                // TODO(#78): messages are rendered sometimes outside of the windows
-                //   Just render sample.txt to reproduce.
-                message_entry_buffer.pop();
-            }
+            message_entry_buffer.push(messages[message_end], face, emote_cache, params);
 
             message_end += 1;
             auto t1 = messages[message_end - 1].timestamp;
@@ -343,12 +474,12 @@ void sample_chat_log_animation(FT_Face face,
         message_cooldown -= VODUS_DELTA_TIME_SEC;
 
         fill_image32_with_color(surface, params.background_color);
-        h = message_entry_buffer.render(surface, face, emote_cache, params);
+        message_entry_buffer.render(surface, face, emote_cache, params);
         encoder->encode_frame(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
-        message_entry_buffer.update(VODUS_DELTA_TIME_SEC);
+        message_entry_buffer.update(VODUS_DELTA_TIME_SEC, face, emote_cache, params);
 
         print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
     }
@@ -358,7 +489,7 @@ void sample_chat_log_animation(FT_Face face,
         message_entry_buffer.render(surface, face, emote_cache, params);
 
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
-        message_entry_buffer.update(VODUS_DELTA_TIME_SEC);
+        message_entry_buffer.update(VODUS_DELTA_TIME_SEC, face, emote_cache, params);
         encoder->encode_frame(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
