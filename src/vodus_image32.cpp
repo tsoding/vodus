@@ -152,7 +152,6 @@ void slap_ftbitmap_onto_image32(Image32 dest, FT_Bitmap *src, Pixel32 color, int
                             dest.pixels[(row + y) * dest.width + col + x],
                             color);
                 }
-                // TODO(#6): how do we mix alphas?
             }
         }
     }
