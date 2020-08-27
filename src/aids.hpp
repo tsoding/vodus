@@ -21,7 +21,7 @@
 //
 // ============================================================
 //
-// aids — 0.2.0 — std replacement for C++. Designed to aid developers
+// aids — 0.7.0 — std replacement for C++. Designed to aid developers
 // to a better programming experience.
 //
 // https://github.com/rexim/aids
@@ -30,6 +30,12 @@
 //
 // ChangeLog (https://semver.org/ is implied)
 //
+//   0.7.0  String_View::operator<()
+//          print1(FILE*, bool)
+//   0.6.0  swap
+//   0.5.0  Equality operations for Maybe<T>
+//   0.4.0  mod
+//   0.3.0  Stretchy_Buffer
 //   0.2.0  unwrap_into
 //          print1 for long int
 //   0.1.0  print1 for long unsigned int
@@ -42,6 +48,12 @@
 //          Maybe<T>,
 //          String_View,
 //          print, println
+//
+// ============================================================
+//
+// Contributors:
+//   Alexey Kutepov (github:rexim)
+//   Aodhnait Étaín (github:aodhneine)
 
 #ifndef AIDS_HPP_
 #define AIDS_HPP_
@@ -78,6 +90,20 @@ namespace aids
         return min(max(low, x), high);
     }
 
+    template <typename T>
+    T mod(T a, T b)
+    {
+        return (a % b + b) % b;
+    }
+
+    template <typename T>
+    void swap(T *a, T *b)
+    {
+        T t = *a;
+        *a = *b;
+        *b = t;
+    }
+
     ////////////////////////////////////////////////////////////
     // DEFER
     ////////////////////////////////////////////////////////////
@@ -110,6 +136,20 @@ namespace aids
     {
         bool has_value;
         T unwrap;
+
+        bool operator!=(const Maybe<T> &that) const
+        {
+            return !(*this == that);
+        }
+
+        bool operator==(const Maybe<T> &that) const
+        {
+            if (this->has_value && that.has_value) {
+                return this->unwrap == that.unwrap;
+            }
+
+            return !this->has_value && !that.has_value;
+        }
     };
 
 #define unwrap_into(lvalue, maybe)              \
@@ -278,6 +318,20 @@ namespace aids
             return {};
         }
 
+        bool operator<(String_View b) const
+        {
+            auto a = *this;
+            while (a.count > 0 && b.count > 0) {
+                if (*a.data != *b.data) {
+                    return *a.data < *b.data;
+                }
+                a.chop(1);
+                b.chop(1);
+            }
+
+            return a.count < b.count;
+        }
+
         bool operator==(String_View view) const
         {
             if (this->count != view.count) return false;
@@ -336,6 +390,39 @@ namespace aids
     }
 
     ////////////////////////////////////////////////////////////
+    // STRETCHY BUFFER
+    ////////////////////////////////////////////////////////////
+
+    struct Stretchy_Buffer
+    {
+        size_t capacity;
+        size_t size;
+        char *data;
+
+        void push(const char *that_data, size_t that_size)
+        {
+            if (size + that_size > capacity) {
+                capacity = 2 * capacity + that_size;
+                data = (char*)realloc((void*)data, capacity);
+            }
+
+            memcpy(data + size, that_data, that_size);
+            size += that_size;
+        }
+
+        template <typename T>
+        void push(T x)
+        {
+            push((char*) &x, sizeof(x));
+        }
+    };
+
+    void print1(FILE *stream, Stretchy_Buffer buffer)
+    {
+        fwrite(buffer.data, 1, buffer.size, stream);
+    }
+
+    ////////////////////////////////////////////////////////////
     // PRINT
     ////////////////////////////////////////////////////////////
 
@@ -383,6 +470,11 @@ namespace aids
     void print(FILE *stream, Types... args)
     {
         (print1(stream, args), ...);
+    }
+
+    void print1(FILE *stream, bool b)
+    {
+        print1(stream, b ? "true" : "false");
     }
 
     template <typename T>
