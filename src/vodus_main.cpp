@@ -48,10 +48,9 @@ struct Frame_Encoder
     }
 };
 
-Message messages[VODUS_MESSAGES_CAPACITY];
-size_t messages_size = 0;
-
-void sample_chat_log_animation(FT_Face face,
+void sample_chat_log_animation(Message *messages,
+                               size_t messages_size,
+                               FT_Face face,
                                Frame_Encoder *encoder,
                                Emote_Cache *emote_cache,
                                Video_Params params)
@@ -246,6 +245,11 @@ int main(int argc, char *argv[])
         println(stderr, "Could not read file `", input_filepath, "`");
         abort();
     }
+
+    Message *messages = new Message[VODUS_MESSAGES_CAPACITY];
+    defer(delete[] messages);
+    size_t messages_size = 0;
+
     while (input.unwrap.count > 0) {
         assert(messages_size < VODUS_MESSAGES_CAPACITY);
         String_View message = input.unwrap.chop_by_delim('\n');
@@ -268,7 +272,7 @@ int main(int argc, char *argv[])
 
     {
         clock_t begin = clock();
-        sample_chat_log_animation(face, &encoder, &emote_cache, params);
+        sample_chat_log_animation(messages, messages_size, face, &encoder, &emote_cache, params);
         println(stdout, "Rendering took ", (float) (clock() - begin) / (float) CLOCKS_PER_SEC, " seconds");
     }
 
