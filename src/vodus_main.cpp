@@ -248,21 +248,7 @@ int main(int argc, char *argv[])
 
     Message *messages = new Message[VODUS_MESSAGES_CAPACITY];
     defer(delete[] messages);
-    size_t messages_size = 0;
-
-    while (input.unwrap.count > 0) {
-        assert(messages_size < VODUS_MESSAGES_CAPACITY);
-        String_View message = input.unwrap.chop_by_delim('\n');
-        messages[messages_size].timestamp = (int) chop_timestamp(&message);
-        messages[messages_size].nickname = chop_nickname(&message);
-        messages[messages_size].message = message.trim();
-        messages_size++;
-    }
-    messages_size = min(messages_size, params.messages_limit);
-    std::sort(messages, messages + messages_size,
-              [](const Message &m1, const Message &m2) {
-                  return m1.timestamp < m2.timestamp;
-              });
+    size_t messages_size = parse_messages_from_string_view(input.unwrap, messages, params);
 
     Frame_Encoder encoder = {};
     encoder.frame = frame;
