@@ -18,6 +18,5 @@ struct Video_Params
 void print1(FILE *stream, Video_Params params);
 
 Video_Params default_video_params();
-Video_Params video_params_from_file(const char *filepath);
 
 #endif  // VODUS_VIDEO_PARAMS_HPP_
