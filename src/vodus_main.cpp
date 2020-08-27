@@ -420,7 +420,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    // TODO(#44): BTTV mapping is not auto populated from the BTTV API
     // TODO(#92): loading emotes step is too slow
     // Can we speed it up?
     Emote_Cache emote_cache = { };
