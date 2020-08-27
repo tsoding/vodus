@@ -419,7 +419,6 @@ int main(void)
 
     curl_multi_setopt(cm, CURLMOPT_MAXCONNECTS, MAX_PARALLEL);
 
-    // TODO(#55): better naming scheme for the emotes
 
     append_bttv_mapping(curl, "https://api.betterttv.net/2/emotes", mapping, &downloads);
     append_bttv_mapping(curl, "https://api.betterttv.net/2/channels/tsoding", mapping, &downloads);
