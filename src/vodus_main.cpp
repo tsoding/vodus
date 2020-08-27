@@ -383,25 +383,6 @@ void usage(FILE *stream)
                     "                                    Examples: ffffffff, 000000FF, A0eA0000");
 }
 
-struct Args
-{
-    int argc;
-    char **argv;
-
-    char *pop()
-    {
-        char *result = *argv;
-        argv += 1;
-        argc -= 1;
-        return result;
-    }
-
-    bool empty()
-    {
-        return argc == 0;
-    }
-};
-
 template <typename Integer>
 Integer parse_integer_flag(String_View flag, String_View value)
 {
