@@ -218,7 +218,7 @@ struct Message_Buffer
 
     // TODO(#74): message entering/leaving animation should be disablable
     // TODO(#75): entering/leaving animation should also animate alpha
-    // TODO: message animation is broken
+    // TODO(#105): message animation is broken
 
     void normalize_queue(FT_Face face,
                          Emote_Cache *emote_cache,
