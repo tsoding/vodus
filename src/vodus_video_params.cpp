@@ -42,7 +42,6 @@ Video_Params default_video_params() {
 
 void usage(FILE *stream)
 {
-    // TODO(#79): usage output is outdated
     println(stream, "Usage: vodus [OPTIONS] <log-filepath>");
     println(stream, "    --help|-h                       Display this help and exit");
     println(stream, "    --output|-o <filepath>          Output path");
