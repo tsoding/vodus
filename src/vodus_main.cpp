@@ -48,7 +48,6 @@ struct Frame_Encoder
     }
 };
 
-Message_Buffer<1024> message_buffer = {};
 Message messages[VODUS_MESSAGES_CAPACITY];
 size_t messages_size = 0;
 
@@ -57,6 +56,9 @@ void sample_chat_log_animation(FT_Face face,
                                Emote_Cache *emote_cache,
                                Video_Params params)
 {
+    auto message_buffer = new Message_Buffer<1024>();
+    defer(delete message_buffer);
+
     Image32 surface = {
         .width = params.width,
         .height = params.height,
@@ -75,7 +77,7 @@ void sample_chat_log_animation(FT_Face face,
     const float total_t = messages[messages_size - 1].timestamp + TRAILING_BUFFER_SEC;
     for (; message_end < messages_size; ++frame_index) {
         if (message_cooldown <= 0.0f) {
-            message_buffer.push(messages[message_end], face, emote_cache, params);
+            message_buffer->push(messages[message_end], face, emote_cache, params);
 
             message_end += 1;
             auto t1 = messages[message_end - 1].timestamp;
@@ -86,22 +88,22 @@ void sample_chat_log_animation(FT_Face face,
         message_cooldown -= VODUS_DELTA_TIME_SEC;
 
         fill_image32_with_color(surface, params.background_color);
-        message_buffer.render(surface, face, emote_cache, params);
+        message_buffer->render(surface, face, emote_cache, params);
         encoder->encode_frame(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
-        message_buffer.update(VODUS_DELTA_TIME_SEC, face, emote_cache, params);
+        message_buffer->update(VODUS_DELTA_TIME_SEC, face, emote_cache, params);
 
         print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
     }
 
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * params.fps; ++i, ++frame_index) {
         fill_image32_with_color(surface, params.background_color);
-        message_buffer.render(surface, face, emote_cache, params);
+        message_buffer->render(surface, face, emote_cache, params);
 
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
-        message_buffer.update(VODUS_DELTA_TIME_SEC, face, emote_cache, params);
+        message_buffer->update(VODUS_DELTA_TIME_SEC, face, emote_cache, params);
         encoder->encode_frame(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
