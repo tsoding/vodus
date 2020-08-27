@@ -401,13 +401,16 @@ void slap_text_onto_image32(Image32 surface,
     }
 }
 
-void slap_text_onto_image32_wrapped(Image32 surface,
+/// returns true if wrapped around
+bool slap_text_onto_image32_wrapped(Image32 surface,
                                     FT_Face face,
                                     String_View text,
                                     Pixel32 color,
                                     int *pen_x, int *pen_y,
                                     size_t font_size)
 {
+    bool wrapped = false;
+
     int copy_x = *pen_x;
     int copy_y = *pen_y;
 
@@ -415,24 +418,27 @@ void slap_text_onto_image32_wrapped(Image32 surface,
     if (copy_x >= (int)surface.width) {
         *pen_x = 0;
         *pen_y += font_size;
+        wrapped = true;
     }
 
     slap_text_onto_image32(surface, face, text, color, pen_x, pen_y);
+    return wrapped;
 }
 
-void slap_text_onto_image32_wrapped(Image32 surface,
+/// returns true if wrapped around
+bool slap_text_onto_image32_wrapped(Image32 surface,
                                     FT_Face face,
                                     const char *cstr,
                                     Pixel32 color,
                                     int *pen_x, int *pen_y,
                                     size_t font_size)
 {
-    slap_text_onto_image32_wrapped(surface,
-                                   face,
-                                   cstr_as_string_view(cstr),
-                                   color,
-                                   pen_x, pen_y,
-                                   font_size);
+    return slap_text_onto_image32_wrapped(surface,
+                                          face,
+                                          cstr_as_string_view(cstr),
+                                          color,
+                                          pen_x, pen_y,
+                                          font_size);
 }
 
 void slap_text_onto_image32(Image32 surface,

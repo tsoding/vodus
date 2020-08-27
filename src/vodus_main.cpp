@@ -60,105 +60,99 @@ struct Message
     time_t timestamp;
     String_View nickname;
     String_View message;
+
+    /// returns amount of rows the message took
+    int height(FT_Face face,
+               Emote_Cache *emote_cache,
+               Video_Params params)
+    {
+        Image32 dummy = {};
+        dummy.width = params.width;
+        return render(dummy, face, emote_cache, params, 0);
+    }
+
+    /// returns amount of rows the message took
+    int render(Image32 surface, FT_Face face,
+               Emote_Cache *emote_cache,
+               Video_Params params,
+               int row)
+    {
+        int result = 1;
+        int pen_x = 0;
+        int pen_y = (row + 1) * params.font_size;
+
+        slap_text_onto_image32(surface,
+                               face,
+                               nickname,
+                               params.nickname_color,
+                               &pen_x, &pen_y);
+
+
+        auto text = message.trim();
+        auto text_color = params.text_color;
+        const char *nick_text_sep = ": ";
+
+        const auto slash_me = "/me"_sv;
+
+        if (text.has_prefix(slash_me)) {
+            text.chop(slash_me.count);
+            text_color = params.nickname_color;
+            nick_text_sep = " ";
+        }
+
+        slap_text_onto_image32(surface,
+                               face,
+                               nick_text_sep,
+                               params.nickname_color,
+                               &pen_x, &pen_y);
+
+        while (text.count > 0) {
+            auto word = text.chop_word().trim();
+            auto maybe_emote = emote_cache->emote_by_name(word);
+
+            // TODO(#23): Twitch emotes are not rendered
+            if (maybe_emote.has_value) {
+                auto emote = maybe_emote.unwrap;
+
+                if (pen_x + emote.width() >= (int)surface.width) {
+                    pen_x = 0;
+                    pen_y += params.font_size;
+                    // WRAPPED!
+                    result += 1;
+                }
+
+                emote.slap_onto_image32(surface, pen_x, pen_y - emote.height());
+                pen_x += emote.width();
+            } else {
+                if (slap_text_onto_image32_wrapped(surface,
+                                                   face,
+                                                   word,
+                                                   text_color,
+                                                   &pen_x, &pen_y,
+                                                   params.font_size)) {
+                    // WRAPPED!
+                    result += 1;
+                }
+            }
+
+            if (text.count > 0 &&
+                slap_text_onto_image32_wrapped(surface,
+                                               face,
+                                               " ",
+                                               text_color,
+                                               &pen_x, &pen_y,
+                                               params.font_size)) {
+                // WRAPPED!
+                result += 1;
+            }
+        }
+
+        return result;
+    }
 };
 
 Message messages[VODUS_MESSAGES_CAPACITY];
 size_t messages_size = 0;
-
-void render_message(Image32 surface, FT_Face face,
-                    Message message,
-                    int *x, int *y,
-                    Emote_Cache *emote_cache,
-                    Video_Params params)
-{
-    assert(emote_cache);
-
-    slap_text_onto_image32_wrapped(surface,
-                                   face,
-                                   message.nickname,
-                                   params.nickname_color,
-                                   x, y,
-                                   params.font_size);
-
-
-    auto text = message.message.trim();
-    auto text_color = params.text_color;
-    const char *nick_text_sep = ": ";
-
-    const auto slash_me = "/me"_sv;
-
-    if (text.has_prefix(slash_me)) {
-        text.chop(slash_me.count);
-        text_color = params.nickname_color;
-        nick_text_sep = " ";
-    }
-
-    slap_text_onto_image32_wrapped(surface,
-                                   face,
-                                   nick_text_sep,
-                                   params.nickname_color,
-                                   x, y,
-                                   params.font_size);
-
-    while (text.count > 0) {
-        auto word = text.chop_word();
-        auto maybe_emote = emote_cache->emote_by_name(word);
-
-        // TODO(#23): Twitch emotes are not rendered
-        if (maybe_emote.has_value) {
-            auto emote = maybe_emote.unwrap;
-
-            if (*x + emote.width() >= (int)surface.width) {
-                *x = 0;
-                *y += params.font_size;
-            }
-
-            emote.slap_onto_image32(surface, *x, *y - emote.height());
-            *x += emote.width();
-        } else {
-            slap_text_onto_image32_wrapped(surface,
-                                           face,
-                                           word,
-                                           text_color,
-                                           x, y,
-                                           params.font_size);
-        }
-
-        slap_text_onto_image32_wrapped(surface,
-                                       face,
-                                       " ",
-                                       text_color,
-                                       x, y,
-                                       params.font_size);
-    }
-}
-
-struct Message_Entry
-{
-    Message message;
-    float a;
-
-    float render(Image32 surface,
-                 FT_Face face,
-                 Emote_Cache *emote_cache,
-                 Video_Params params,
-                 float y)
-    {
-        int pen_x = 0;
-        int pen_y = (int) floorf(y + params.font_size);
-        render_message(surface, face, message, &pen_x, &pen_y, emote_cache, params);
-        return pen_y - y;
-    }
-
-    float height(FT_Face face,
-                 Emote_Cache *emote_cache,
-                 Video_Params params)
-    {
-        Image32 fake_surface = {};
-        fake_surface.width = params.width;
-        return render(fake_surface, face, emote_cache, params, 0.0f);
-    }
-};
 
 struct Frame_Encoder
 {
@@ -216,90 +210,67 @@ struct Queue
 };
 
 template <size_t Capacity>
-struct Message_Entry_Buffer
+struct Message_Buffer
 {
-    Queue<Message_Entry, Capacity> entering;
-    Queue<Message_Entry, Capacity> active;
-    Queue<Message_Entry, Capacity> leaving;
+    Queue<Message, Capacity> message_queue;
+    int height;
+    int begin;
 
     // TODO(#74): message entering/leaving animation should be disablable
     // TODO(#75): entering/leaving animation should also animate alpha
+    // TODO(#105): message animation is broken
 
-    void push(Message message)
+    void normalize_queue(FT_Face face,
+                         Emote_Cache *emote_cache,
+                         Video_Params params)
     {
-        Message_Entry entry = {};
-        entry.message = message;
-        entry.a = 0.0f;
-        entering.enqueue(entry);
-    }
-
-    void pop()
-    {
-        if (active.count > 0) {
-            auto entry = active.dequeue();
-            entry.a = 0.0f;
-            leaving.enqueue(entry);
+        while (message_queue.count > 0) {
+            auto message_height = message_queue.first().height(face, emote_cache, params);
+            if (message_height >= abs(begin)) return;
+            message_queue.dequeue();
+            begin += message_height;
+            height -= message_height;
         }
     }
 
-    void update(float dt)
+    void push(Message message,
+              FT_Face face,
+              Emote_Cache *emote_cache,
+              Video_Params params)
     {
-        // TODO(#76): easing in/out for message entering/leaving animations
-        // TODO(#77): parameters of message entering/leaving animations should be customizable
-        const float ALPHA_VELOCITY = 1.0f / 0.1f;
+        const auto message_height = message.height(face, emote_cache, params);
+        const int rows_count = params.height / params.font_size;
 
-        for (size_t i = 0; i < entering.count; ++i) {
-            entering[i].a += ALPHA_VELOCITY * dt;
+        if (begin + height + message_height > rows_count) {
+            begin -= message_height;
         }
 
-        while (entering.count > 0 && entering.first().a >= 1.0f) {
-            auto entry = entering.dequeue();
-            active.enqueue(entry);
-        }
-
-        for (size_t i = 0; i < leaving.count; ++i) {
-            leaving[i].a += ALPHA_VELOCITY * dt;
-        }
-
-        while (leaving.count > 0 && leaving.first().a >= 1.0f) {
-            leaving.dequeue();
-        }
+        message_queue.enqueue(message);
+        height += message_height;
     }
 
-    float render(Image32 surface,
-                 FT_Face face,
-                 Emote_Cache *emote_cache,
-                 Video_Params params)
+    void update(float dt, FT_Face face, Emote_Cache *emote_cache, Video_Params params)
     {
-        float y = 0.0f;
+        normalize_queue(face, emote_cache, params);
+    }
 
-        for (size_t i = 0; i < leaving.count; ++i) {
-            auto &entry = leaving[i];
-            const float h = entry.height(face, emote_cache, params);
-            y -= h * entry.a;
-            entry.render(surface, face, emote_cache, params, y);
-            y += h;
+    void render(Image32 surface,
+                FT_Face face,
+                Emote_Cache *emote_cache,
+                Video_Params params)
+    {
+        int row = begin;
+        for (size_t i = 0; i < message_queue.count; ++i) {
+            row += message_queue[i].render(surface,
+                                           face,
+                                           emote_cache,
+                                           params,
+                                           row);
         }
-
-        for (size_t i = 0; i < active.count; ++i) {
-            auto &entry = active[i];
-            const float h = entry.render(surface, face, emote_cache, params, y);
-            y += h;
-        }
-
-        for (size_t i = 0; i < entering.count; ++i) {
-            auto &entry = entering[i];
-            const float h = entry.height(face, emote_cache, params);
-            y += h * (1.0f - entry.a);
-            entry.render(surface, face, emote_cache, params, y);
-            y += h;
-        }
-
-        return y;
     }
 };
 
-Message_Entry_Buffer<1024> message_entry_buffer = {};
+Message_Buffer<1024> message_buffer = {};
 
 void sample_chat_log_animation(FT_Face face,
                                Frame_Encoder *encoder,
@@ -324,15 +295,9 @@ void sample_chat_log_animation(FT_Face face,
     const size_t TRAILING_BUFFER_SEC = 2;
     assert(messages_size > 0);
     const float total_t = messages[messages_size - 1].timestamp + TRAILING_BUFFER_SEC;
-    float h = 0.0f;
     for (; message_end < messages_size; ++frame_index) {
         if (message_cooldown <= 0.0f) {
-            message_entry_buffer.push(messages[message_end]);
-            if (h >= params.height) {
-                // TODO(#78): messages are rendered sometimes outside of the windows
-                //   Just render sample.txt to reproduce.
-                message_entry_buffer.pop();
-            }
+            message_buffer.push(messages[message_end], face, emote_cache, params);
 
             message_end += 1;
             auto t1 = messages[message_end - 1].timestamp;
@@ -343,22 +308,22 @@ void sample_chat_log_animation(FT_Face face,
         message_cooldown -= VODUS_DELTA_TIME_SEC;
 
         fill_image32_with_color(surface, params.background_color);
-        h = message_entry_buffer.render(surface, face, emote_cache, params);
+        message_buffer.render(surface, face, emote_cache, params);
         encoder->encode_frame(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
-        message_entry_buffer.update(VODUS_DELTA_TIME_SEC);
+        message_buffer.update(VODUS_DELTA_TIME_SEC, face, emote_cache, params);
 
         print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
     }
 
     for (size_t i = 0; i < TRAILING_BUFFER_SEC * params.fps; ++i, ++frame_index) {
         fill_image32_with_color(surface, params.background_color);
-        message_entry_buffer.render(surface, face, emote_cache, params);
+        message_buffer.render(surface, face, emote_cache, params);
 
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
-        message_entry_buffer.update(VODUS_DELTA_TIME_SEC);
+        message_buffer.update(VODUS_DELTA_TIME_SEC, face, emote_cache, params);
         encoder->encode_frame(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
