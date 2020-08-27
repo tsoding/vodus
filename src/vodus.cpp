@@ -31,6 +31,7 @@ using namespace aids;
 const size_t VODUS_MESSAGES_CAPACITY = 1024;
 
 // PLEASE READ THIS --> https://en.wikipedia.org/wiki/Single_Compilation_Unit
+#include "./vodus_error.cpp"
 #include "./vodus_image32.cpp"
 #include "./vodus_video_params.cpp"
 #include "./vodus_emotes.cpp"
