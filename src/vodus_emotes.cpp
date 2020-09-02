@@ -1,23 +1,23 @@
 struct Gif_Animat
 {
-    String_View file_path;
     Animat32 animat;
+    int duration;
     size_t index;
-    float delay_time;
 
     bool is_null() const
     {
         return animat.count == 0;
     }
 
-    void update(float dt)
+    // TODO(#114): Research whether it makes sense to make Gif_Animat::update_global_time() faster
+    void update_global_time(int global_time)
     {
-        if (!is_null()) {
-            delay_time -= dt * 100;
-            while (delay_time <= 0.0f) {
-                index = (index + 1) % animat.count;
-                delay_time = animat.frame_delays[index] + delay_time;
-            }
+        auto t = global_time % duration;
+        index = 0;
+
+        while (t > animat.frame_delays[index] && index < animat.count) {
+            t -= animat.frame_delays[index];
+            index += 1;
         }
     }
 
@@ -112,7 +112,10 @@ Emote load_gif_emote(String_View file_path, size_t size)
     defer(free((void*) file_path_cstr));
 
     emote.gif.animat = load_animat32_from_gif(file_path_cstr, size);
-    emote.gif.file_path = file_path;
+
+    for (size_t i = 0; i < emote.gif.animat.count; ++i) {
+        emote.gif.duration += emote.gif.animat.frame_delays[i];
+    }
 
     return emote;
 }
@@ -188,8 +191,9 @@ struct Emote_Cache
 
     void update_gifs(float delta_time)
     {
+        global_time += delta_time;
         for (size_t i = 0; i < gifs_count; ++i) {
-            gifs[i]->update(delta_time);
+            gifs[i]->update_global_time((int) floorf(global_time * 100.0f));
         }
     }
 
@@ -222,4 +226,6 @@ struct Emote_Cache
     size_t emote_mapping_count = 0;
     Gif_Animat *gifs[EMOTE_GIFS_CAPACITY] = {};
     size_t gifs_count = 0;
+    // TODO(#115): Research the technical limitation of the float global_time in Emote_Cache
+    float global_time = 0.0f;
 };
