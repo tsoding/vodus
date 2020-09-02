@@ -161,7 +161,7 @@ unsigned long djb2(String_View str)
     return hash;
 }
 
-// TODO: pajaWalk emotes are not render correctly (something wrong with the palette)
+// TODO(#109): pajaWalk emotes are not render correctly (something wrong with the palette)
 // TODO: Some gif emote combos can be out of sync because of the lazy loading
 struct Emote_Cache
 {
