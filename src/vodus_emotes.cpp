@@ -162,7 +162,7 @@ unsigned long djb2(String_View str)
 }
 
 // TODO(#109): pajaWalk emotes are not render correctly (something wrong with the palette)
-// TODO: Some gif emote combos can be out of sync because of the lazy loading
+// TODO(#110): Some gif emote combos can be out of sync because of the lazy loading
 struct Emote_Cache
 {
     Maybe<Emote> emote_by_name(String_View name, size_t size)
