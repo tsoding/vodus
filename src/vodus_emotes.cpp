@@ -226,6 +226,6 @@ struct Emote_Cache
     size_t emote_mapping_count = 0;
     Gif_Animat *gifs[EMOTE_GIFS_CAPACITY] = {};
     size_t gifs_count = 0;
-    // TODO: Research the technical limitation of the float global_time in Emote_Cache
+    // TODO(#115): Research the technical limitation of the float global_time in Emote_Cache
     float global_time = 0.0f;
 };
