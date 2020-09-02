@@ -178,11 +178,7 @@ int main(int argc, char *argv[])
     // TODO(#92): loading emotes step is too slow
     // Can we speed it up?
     Emote_Cache emote_cache = { };
-    {
-        clock_t begin = clock();
-        emote_cache.populate_from_file("./mapping.csv", params.font_size);
-        println(stdout, "Loading emotes took ", (float) (clock() - begin) / (float) CLOCKS_PER_SEC, " seconds");
-    }
+    emote_cache.populate_from_file("./mapping.csv", params.font_size);
 
     // FFMPEG INIT START //////////////////////////////
     AVCodec *codec = fail_if_null(
