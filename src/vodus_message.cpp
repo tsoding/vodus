@@ -51,7 +51,7 @@ struct Message
 
         while (text.count > 0) {
             auto word = text.chop_word().trim();
-            auto maybe_emote = emote_cache->emote_by_name(word);
+            auto maybe_emote = emote_cache->emote_by_name(word, params.font_size);
 
             // TODO(#23): Twitch emotes are not rendered
             if (maybe_emote.has_value) {

@@ -129,10 +129,26 @@ Emote load_png_emote(String_View filepath, size_t size)
     return emote;
 }
 
+Emote load_emote(String_View filepath, size_t size)
+{
+    auto ext = file_extension(filepath);
+    if (ext == "gif"_sv) {
+        return load_gif_emote(filepath, size);
+    } else if (ext == "png"_sv) {
+        return load_png_emote(filepath, size);
+    } else {
+        println(stderr, filepath, " has unsupported extension ", ext);
+        abort();
+    }
+
+    return {};
+}
+
 struct Emote_Mapping
 {
     String_View name;
-    Emote emote;
+    Maybe<Emote> emote;
+    String_View filepath;
 };
 
 // NOTE: stolen from http://www.cse.yorku.ca/~oz/hash.html
@@ -145,10 +161,11 @@ unsigned long djb2(String_View str)
     return hash;
 }
 
+// TODO: pajaWalk emotes are not render correctly (something wrong with the palette)
+// TODO: Some gif emote combos can be out of sync because of the lazy loading
 struct Emote_Cache
 {
-    Maybe<Emote> emote_by_name(String_View name,
-                               const char *channel = nullptr)
+    Maybe<Emote> emote_by_name(String_View name, size_t size)
     {
         size_t i = djb2(name) % EMOTE_MAPPING_CAPACITY;
         while (emote_mapping[i].name != name && emote_mapping[i].name.count != 0) {
@@ -156,7 +173,14 @@ struct Emote_Cache
         }
 
         if (emote_mapping[i].name.count != 0) {
-            return {true, emote_mapping[i].emote};
+            if (!emote_mapping[i].emote.has_value) {
+                emote_mapping[i].emote = {true, load_emote(emote_mapping[i].filepath, size)};
+                if (emote_mapping[i].emote.unwrap.type == Emote::Gif) {
+                    gifs[gifs_count++] = &emote_mapping[i].emote.unwrap.gif;
+                }
+            }
+
+            return emote_mapping[i].emote;
         }
 
         return {};
@@ -181,22 +205,14 @@ struct Emote_Cache
             auto line = mapping_csv.unwrap.chop_by_delim('\n');
             auto name = line.chop_by_delim(',');
             auto filename = line;
-            auto ext = file_extension(filename);
 
             size_t i = djb2(name) % EMOTE_MAPPING_CAPACITY;
             while (emote_mapping[i].name.count != 0) {
                 i = (i + 1) % EMOTE_MAPPING_CAPACITY;
             }
 
-            if (ext == "gif"_sv) {
-                emote_mapping[i].emote = load_gif_emote(filename, size);
-                gifs[gifs_count++] = &emote_mapping[i].emote.gif;
-            } else if (ext == "png"_sv) {
-                emote_mapping[i].emote = load_png_emote(filename, size);
-            } else {
-                println(stderr, filename, " has unsupported extension ", ext);
-                abort();
-            }
+            emote_mapping[i].filepath = filename;
+            emote_mapping[i].emote = {};
             emote_mapping[i].name = name;
             emote_mapping_count += 1;
         }
