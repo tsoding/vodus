@@ -78,6 +78,7 @@ struct Message
                 }
             }
 
+            // TODO(#112): no option to not separate consecutive emotes for better looking combos
             if (text.count > 0 &&
                 slap_text_onto_image32_wrapped(surface,
                                                face,

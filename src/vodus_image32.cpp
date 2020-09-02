@@ -229,7 +229,12 @@ void slap_savedimage_to_image32(Image32 vscreen,
     for (size_t y = 0; (int) y < src->ImageDesc.Height; ++y) {
         for (size_t x = 0; (int) x < src->ImageDesc.Width; ++x) {
             auto src_color_index = src->RasterBits[y * src->ImageDesc.Width + x];
-            auto pixel = screen_color_map->Colors[src_color_index];
+            GifColorType pixel = {};
+            if (src->ImageDesc.ColorMap) {
+                pixel = src->ImageDesc.ColorMap->Colors[src_color_index];
+            } else {
+                pixel = screen_color_map->Colors[src_color_index];
+            }
             auto dst_pixel_index = (y + src->ImageDesc.Top) * vscreen.width + (x + src->ImageDesc.Left);
             if (src_color_index != gcb.TransparentColor) {
                 vscreen.pixels[dst_pixel_index].r = pixel.Red;
@@ -239,6 +244,18 @@ void slap_savedimage_to_image32(Image32 vscreen,
             }
         }
     }
+}
+
+void save_image32_as_png(Image32 image, const char *filepath)
+{
+    int stbi_ret = stbi_write_png(
+        filepath,
+        image.width,
+        image.height,
+        4,
+        image.pixels,
+        image.width * sizeof(image.pixels[0]));
+    assert(stbi_ret);
 }
 
 Animat32 load_animat32_from_gif(const char *filepath, size_t size)
