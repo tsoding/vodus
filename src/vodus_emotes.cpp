@@ -191,9 +191,15 @@ struct Emote_Cache
 
     void update_gifs(float delta_time)
     {
-        global_time += delta_time;
+        const float GLOBAL_TIME_PERIOD = 1000000.0f;
+        // NOTE: We are wrapping around the global_time_sec around
+        // some big GLOBAL_TIME_PERIOD to prevent the global_time_sec
+        // overflowing. This comes at the cost of slight GIF animation
+        // glitch that happens every 11 days of the video (please
+        // update this estimate if you update GLOBAL_TIME_SEC).
+        global_time_sec = fmodf(global_time_sec + delta_time, GLOBAL_TIME_PERIOD);
         for (size_t i = 0; i < gifs_count; ++i) {
-            gifs[i]->update_global_time((int) floorf(global_time * 100.0f));
+            gifs[i]->update_global_time((int) floorf(global_time_sec * 100.0f));
         }
     }
 
@@ -226,6 +232,5 @@ struct Emote_Cache
     size_t emote_mapping_count = 0;
     Gif_Animat *gifs[EMOTE_GIFS_CAPACITY] = {};
     size_t gifs_count = 0;
-    // TODO(#115): Research the technical limitation of the float global_time in Emote_Cache
-    float global_time = 0.0f;
+    float global_time_sec = 0.0f;
 };
