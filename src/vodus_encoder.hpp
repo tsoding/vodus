@@ -24,4 +24,11 @@ struct AVEncoder_Context
 
 void avencoder_encode(AVEncoder_Context *context, Image32 surface, int frame_index);
 
+struct PNGEncoder_Context
+{
+    String_View output_folder_path;
+};
+
+void pngencoder_encode(PNGEncoder_Context *context, Image32 surface, int frame_index);
+
 #endif  // VODUS_ENCODER_HPP_

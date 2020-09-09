@@ -41,3 +41,14 @@ void avencoder_encode(AVEncoder_Context *context, Image32 surface, int frame_ind
     context->frame->pts = frame_index;
     encode_avframe(context->context, context->frame, context->packet, context->output_stream);
 }
+
+void pngencoder_encode(PNGEncoder_Context *context, Image32 surface, int frame_index)
+{
+    char buffer[1024];
+    String_Buffer path = {sizeof(buffer), buffer};
+    sprint(&path, context->output_folder_path, "/", frame_index, "-frame.png");
+    if (!stbi_write_png(buffer, surface.width, surface.height, 4, surface.pixels, surface.width * 4)) {
+        println(stderr, "Could not save image: ", path);
+        abort();
+    }
+}
