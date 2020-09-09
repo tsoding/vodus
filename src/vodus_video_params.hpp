@@ -1,8 +1,15 @@
 #ifndef VODUS_VIDEO_PARAMS_HPP_
 #define VODUS_VIDEO_PARAMS_HPP_
 
+enum class Output_Type
+{
+    Video,
+    PNG
+};
+
 struct Video_Params
 {
+    Output_Type output_type;
     size_t fps;
     size_t width;
     size_t height;

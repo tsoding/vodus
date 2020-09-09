@@ -27,6 +27,7 @@ void print1(FILE *stream, Video_Params params)
 
 Video_Params default_video_params() {
     Video_Params params = {};
+    params.output_type       = Output_Type::Video;
     params.fps               = 60;
     params.width             = 1920;
     params.height            = 1080;
@@ -129,6 +130,15 @@ void patch_video_params_from_flag(Video_Params *params, String_View flag, String
         params->font = value;
     } else if (flag == "messages_limit"_sv || flag == "messages-limit"_sv) {
         params->messages_limit = parse_integer_flag<size_t>(flag, value);
+    } else if (flag == "output_type"_sv || flag == "output-type"_sv) {
+        if (value == "video"_sv) {
+            params->output_type = Output_Type::Video;
+        } else if (value == "png"_sv) {
+            params->output_type = Output_Type::PNG;
+        } else {
+            println(stderr, "Unknown output type `", value, "`");
+            abort();
+        }
     } else {
         println(stderr, "Unknown flag `", flag, "`");
         abort();
