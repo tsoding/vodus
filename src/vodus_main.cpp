@@ -83,7 +83,6 @@ int main(int argc, char *argv[])
     const char *output_filepath = args.pop();
 
     Video_Params params = default_video_params();
-
     patch_video_params_from_args(&params, &args);
 
     println(stdout, "params = ", params);
@@ -131,52 +130,6 @@ int main(int argc, char *argv[])
     emote_cache.populate_from_file("./mapping.csv", params.font_size);
 
     // FFMPEG INIT START //////////////////////////////
-    AVCodec *codec = fail_if_null(
-        avcodec_find_encoder(AV_CODEC_ID_MPEG2VIDEO),
-        "Codec not found");
-
-    AVCodecContext *context = fail_if_null(
-        avcodec_alloc_context3(codec),
-        "Could not allocate video codec context");
-    defer(avcodec_free_context(&context));
-
-    context->bit_rate = params.bitrate;
-    context->width = params.width;
-    context->height = params.height;
-    context->time_base = (AVRational){1, (int) params.fps};
-    context->framerate = (AVRational){(int) params.fps, 1};
-    context->gop_size = 10;
-    // context->max_b_frames = 1;
-    context->pix_fmt = AV_PIX_FMT_YUV420P;
-
-    AVPacket *packet = fail_if_null(
-        av_packet_alloc(),
-        "Could not allocate packet");
-    defer(av_packet_free(&packet));
-
-    avec(avcodec_open2(context, codec, NULL));
-
-    if (output_filepath == nullptr) {
-        println(stderr, "Error: Output filepath is not provided. Use `--output` flag.");
-        usage(stderr);
-        exit(1);
-    }
-
-    FILE *output_stream = fail_if_null(
-        fopen(output_filepath, "wb"),
-        "Could not open ", output_filepath);
-    defer(fclose(output_stream));
-
-    AVFrame *frame = fail_if_null(
-        av_frame_alloc(),
-        "Could not allocate video frame");
-    defer(av_frame_free(&frame));
-
-    frame->format = context->pix_fmt;
-    frame->width  = context->width;
-    frame->height = context->height;
-
-    avec(av_frame_get_buffer(frame, 32));
     // FFMPEG INIT STOP //////////////////////////////
 
     // TODO(#35): log is not retrived directly from the Twitch API
@@ -196,13 +149,18 @@ int main(int argc, char *argv[])
     defer(delete[] messages);
     size_t messages_size = parse_messages_from_string_view(input.unwrap, messages, params);
 
-    AVEncoder_Context avencoder_context ={};
-    avencoder_context.frame = frame;
-    avencoder_context.context = context;
-    avencoder_context.packet = packet;
-    avencoder_context.output_stream = output_stream;
+    Encoder encoder = {};
+    switch (params.output_type) {
+    case Output_Type::Video: {
+        encoder.context = new_avencoder_context(params, output_filepath);
+        encoder.encode_func = (Encode_Func) &avencoder_encode;
+    } break;
 
-    Encoder encoder = {&avencoder_context, (Encode_Func) avencoder_encode};
+    case Output_Type::PNG: {
+        encoder.context = new PNGEncoder_Context {cstr_as_string_view(output_filepath)};
+        encoder.encode_func = (Encode_Func) &pngencoder_encode;
+    } break;
+    }
 
     {
         clock_t begin = clock();
@@ -210,11 +168,24 @@ int main(int argc, char *argv[])
         println(stdout, "Rendering took ", (float) (clock() - begin) / (float) CLOCKS_PER_SEC, " seconds");
     }
 
-    encode_avframe(context, NULL, packet, output_stream);
+    switch (params.output_type) {
+    case Output_Type::Video: {
+        AVEncoder_Context *context = (AVEncoder_Context *) encoder.context;
 
-    uint8_t endcode[] = { 0, 0, 1, 0xb7 };
-    if (codec->id == AV_CODEC_ID_MPEG1VIDEO || codec->id == AV_CODEC_ID_MPEG2VIDEO)
-        fwrite(endcode, 1, sizeof(endcode), output_stream);
+        encode_avframe(context->context, NULL, context->packet, context->output_stream);
+
+        uint8_t endcode[] = { 0, 0, 1, 0xb7 };
+        if (context->codec->id == AV_CODEC_ID_MPEG1VIDEO || context->codec->id == AV_CODEC_ID_MPEG2VIDEO) {
+            fwrite(endcode, 1, sizeof(endcode), context->output_stream);
+        }
+
+        free_avencoder_context(context);
+    } break;
+
+    case Output_Type::PNG: {
+        delete ((PNGEncoder_Context*) encoder.context);
+    } break;
+    }
 
     return 0;
 }

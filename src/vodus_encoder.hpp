@@ -20,8 +20,11 @@ struct AVEncoder_Context
     AVCodecContext *context;
     AVPacket *packet;
     FILE *output_stream;
+    AVCodec *codec;
 };
 
+AVEncoder_Context *new_avencoder_context(Video_Params params, const char *output_filepath);
+void free_avencoder_context(AVEncoder_Context *context);
 void avencoder_encode(AVEncoder_Context *context, Image32 surface, int frame_index);
 
 struct PNGEncoder_Context
