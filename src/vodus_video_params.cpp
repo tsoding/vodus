@@ -9,9 +9,22 @@ const char *string_view_as_cstr(String_View sv)
     return cstr;
 }
 
+void print1(FILE *stream, Output_Type output_type)
+{
+    switch (output_type) {
+    case Output_Type::Video:
+        print1(stream, "video");
+        break;
+    case Output_Type::PNG:
+        print1(stream, "png");
+        break;
+    }
+}
+
 void print1(FILE *stream, Video_Params params)
 {
     println(stream, "{");
+    println(stream, "    .output_type = ", params.output_type, ",");
     println(stream, "    .fps = ", params.fps, ",");
     println(stream, "    .width = ", params.width, ",");
     println(stream, "    .height = ", params.height, ",");
