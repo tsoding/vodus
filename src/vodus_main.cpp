@@ -1,57 +1,7 @@
-void encode_avframe(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE *outfile)
-{
-    avec(avcodec_send_frame(context, frame));
-
-    for (int ret = 0; ret >= 0; ) {
-        ret = avcodec_receive_packet(context, pkt);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            return;
-        } else {
-            avec(ret);
-        }
-
-        fwrite(pkt->data, 1, pkt->size, outfile);
-        av_packet_unref(pkt);
-    }
-}
-
-void slap_image32_onto_avframe(Image32 frame_image32, AVFrame *avframe)
-{
-    assert(avframe->width == (int) frame_image32.width);
-    assert(avframe->height == (int) frame_image32.height);
-
-    for (int y = 0; y < avframe->height; ++y) {
-        for (int x = 0; x < avframe->width; ++x) {
-            Pixel32 p = frame_image32.pixels[y * frame_image32.width + x];
-            int Y =  (0.257 * p.r) + (0.504 * p.g) + (0.098 * p.b) + 16;
-            int V =  (0.439 * p.r) - (0.368 * p.g) - (0.071 * p.b) + 128;
-            int U = -(0.148 * p.r) - (0.291 * p.g) + (0.439 * p.b) + 128;
-            avframe->data[0][y        * avframe->linesize[0] + x]        = Y;
-            avframe->data[1][(y >> 1) * avframe->linesize[1] + (x >> 1)] = U;
-            avframe->data[2][(y >> 1) * avframe->linesize[2] + (x >> 1)] = V;
-        }
-    }
-}
-
-struct Frame_Encoder
-{
-    AVFrame *frame;
-    AVCodecContext *context;
-    AVPacket *packet;
-    FILE *output_stream;
-
-    void encode_frame(Image32 surface, int frame_index)
-    {
-        slap_image32_onto_avframe(surface, frame);
-        frame->pts = frame_index;
-        encode_avframe(context, frame, packet, output_stream);
-    }
-};
-
 void sample_chat_log_animation(Message *messages,
                                size_t messages_size,
                                FT_Face face,
-                               Frame_Encoder *encoder,
+                               Encoder encoder,
                                Emote_Cache *emote_cache,
                                Video_Params params)
 {
@@ -88,7 +38,7 @@ void sample_chat_log_animation(Message *messages,
 
         fill_image32_with_color(surface, params.background_color);
         message_buffer->render(surface, face, emote_cache, params);
-        encoder->encode_frame(surface, frame_index);
+        encoder.encode(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
@@ -103,7 +53,7 @@ void sample_chat_log_animation(Message *messages,
 
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
         message_buffer->update(VODUS_DELTA_TIME_SEC, face, emote_cache, params);
-        encoder->encode_frame(surface, frame_index);
+        encoder.encode(surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
         print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
@@ -246,15 +196,17 @@ int main(int argc, char *argv[])
     defer(delete[] messages);
     size_t messages_size = parse_messages_from_string_view(input.unwrap, messages, params);
 
-    Frame_Encoder encoder = {};
-    encoder.frame = frame;
-    encoder.context = context;
-    encoder.packet = packet;
-    encoder.output_stream = output_stream;
+    AVEncoder_Context avencoder_context ={};
+    avencoder_context.frame = frame;
+    avencoder_context.context = context;
+    avencoder_context.packet = packet;
+    avencoder_context.output_stream = output_stream;
+
+    Encoder encoder = {&avencoder_context, (Encode_Func) avencoder_encode};
 
     {
         clock_t begin = clock();
-        sample_chat_log_animation(messages, messages_size, face, &encoder, &emote_cache, params);
+        sample_chat_log_animation(messages, messages_size, face, encoder, &emote_cache, params);
         println(stdout, "Rendering took ", (float) (clock() - begin) / (float) CLOCKS_PER_SEC, " seconds");
     }
 
