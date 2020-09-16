@@ -9,7 +9,6 @@ struct Gif_Animat
         return animat.count == 0;
     }
 
-    // TODO(#114): Research whether it makes sense to make Gif_Animat::update_global_time() faster
     void update_global_time(int global_time)
     {
         auto t = global_time % duration;
