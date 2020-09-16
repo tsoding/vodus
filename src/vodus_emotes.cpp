@@ -164,7 +164,6 @@ unsigned long djb2(String_View str)
     return hash;
 }
 
-// TODO(#109): pajaWalk emotes are not render correctly (something wrong with the palette)
 struct Emote_Cache
 {
     Maybe<Emote> emote_by_name(String_View name, size_t size)
