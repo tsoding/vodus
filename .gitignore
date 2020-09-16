@@ -6,5 +6,6 @@ emote_downloader
 *.mpeg
 emotes/
 TAGS
-mapping.csv
+/mapping.csv
 .vscode/
+diffimg
