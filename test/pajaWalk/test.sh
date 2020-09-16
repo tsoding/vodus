@@ -20,5 +20,5 @@ if [ "$EXPECTED_COUNT" != "$ACTUAL_COUNT" ]; then
 fi
 
 for frame in `ls ./expected-frames/`; do
-    $DIFFIMG -e "./expected-frames/$frame" -a "./actual-frames/$frame"
+    $DIFFIMG -e "./expected-frames/$frame" -a "./actual-frames/$frame" -t 2
 done
