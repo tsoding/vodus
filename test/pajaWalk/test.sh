@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-VODUS=../../vodus.debug
+VODUS=../../vodus.release
 DIFFIMG=../../diffimg
 
 set -xe
