@@ -32,7 +32,7 @@ struct Fixed_Array
 const size_t DEFAULT_STRING_BUFFER_CAPACITY = 20 * 1024 * 1024;
 
 template <size_t Capacity = DEFAULT_STRING_BUFFER_CAPACITY>
-struct String_Buffer
+struct Fixed_Buffer
 {
     size_t size;
     char data[Capacity + 1];
@@ -65,7 +65,7 @@ struct String_Buffer
 };
 
 template <size_t Capacity>
-void print1(FILE *stream, String_Buffer<Capacity> buffer)
+void print1(FILE *stream, Fixed_Buffer<Capacity> buffer)
 {
     fwrite(buffer.data, 1, buffer.size, stream);
 }
@@ -73,7 +73,7 @@ void print1(FILE *stream, String_Buffer<Capacity> buffer)
 size_t curl_string_buffer_write_callback(char *ptr,
                                          size_t size,
                                          size_t nmemb,
-                                         String_Buffer<> *string_buffer)
+                                         Fixed_Buffer<> *string_buffer)
 {
     return string_buffer->write(ptr, size * nmemb);
 }
@@ -96,7 +96,7 @@ CURLcode curl_download_file_to(CURL *curl, const char *url, const char *filepath
 template <size_t Capacity = DEFAULT_STRING_BUFFER_CAPACITY>
 CURLcode curl_perform_to_string_buffer(CURL *curl,
                                        const char *url,
-                                       String_Buffer<Capacity> *string_buffer)
+                                       Fixed_Buffer<Capacity> *string_buffer)
 {
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_string_buffer_write_callback);
@@ -106,7 +106,7 @@ CURLcode curl_perform_to_string_buffer(CURL *curl,
 
 const size_t JSON_MEMORY_BUFFER_CAPACITY = 10 * MEGA;
 static uint8_t json_memory_buffer[JSON_MEMORY_BUFFER_CAPACITY];
-String_Buffer curl_buffer = {};
+Fixed_Buffer curl_buffer = {};
 
 static inline
 void expect_json_type(Json_Value value, Json_Type type)
@@ -124,8 +124,8 @@ const size_t MAX_PARALLEL = 20;
 
 struct Curl_Download
 {
-    String_Buffer<PATH_BUFFER_SIZE> url;
-    String_Buffer<PATH_BUFFER_SIZE> file;
+    Fixed_Buffer<PATH_BUFFER_SIZE> url;
+    Fixed_Buffer<PATH_BUFFER_SIZE> file;
 };
 
 void add_download_to_multi_handle(Curl_Download download, CURLM *cm)
