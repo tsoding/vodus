@@ -124,8 +124,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    // TODO(#92): loading emotes step is too slow
-    // Can we speed it up?
     Emote_Cache emote_cache = { };
     emote_cache.populate_from_file("./mapping.csv", params.font_size);
 
