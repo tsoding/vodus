@@ -13,8 +13,10 @@ EMOTE_DOWNLOADER_PKGS=libcurl
 EMOTE_DOWNLOADER_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb `pkg-config --cflags $(EMOTE_DOWNLOADER_PKGS)`
 EMOTE_DOWNLOADER_LIBS=`pkg-config --libs $(EMOTE_DOWNLOADER_PKGS)`
 
+DIFFIMG_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb
+
 .PHONY: all
-all: vodus.release vodus.debug emote_downloader Makefile
+all: vodus.release vodus.debug emote_downloader diffimg Makefile
 
 vodus.release: $(wildcard src/vodus*.cpp) $(wildcard src/core*.cpp)
 	$(CXX) $(VODUS_CXXFLAGS) -O3 -o vodus.release src/vodus.cpp $(VODUS_LIBS)
@@ -32,3 +34,6 @@ render: vodus.debug
 .PHONY: render.release
 render.release: vodus.release
 	./vodus.release sample.txt output.mpeg --config video.conf
+
+diffimg: src/diffimg.cpp
+	$(CXX) $(DIFFIMG_CXXFLAGS) -o diffimg src/diffimg.cpp
