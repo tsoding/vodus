@@ -27,8 +27,12 @@ jobs:
           make -B
           ./emote_downloader
           make render
-          cd ./test/pajaWalk/
+          pushd ./test/pajaWalk/
           ./test.sh
+          popd
+          pushd ./test/utf8/
+          ./test.sh
+          popd
         env:
           CC: gcc
           CXX: g++
@@ -61,8 +65,12 @@ jobs:
           make -B
           ./emote_downloader
           make render
-          cd ./test/pajaWalk/
+          pushd ./test/pajaWalk/
           ./test.sh
+          popd
+          pushd ./test/utf8/
+          ./test.sh
+          popd
         env:
           CC: clang
           CXX: clang++
