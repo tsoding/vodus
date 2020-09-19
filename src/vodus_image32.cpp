@@ -399,8 +399,17 @@ void slap_text_onto_image32(Image32 surface,
                             Pixel32 color,
                             int *pen_x, int *pen_y)
 {
-    for (size_t i = 0; i < text.count; ++i) {
-        FT_UInt glyph_index = FT_Get_Char_Index(face, text.data[i]);
+    String_View iter = text;
+
+    while (iter.count > 0) {
+        size_t size = 0;
+        auto code = utf8_get_code(iter, &size);
+        if (!code.has_value) {
+            println(stderr, "`", text, "` is not a correct UTF-8 sequence");
+            abort();
+        }
+        FT_UInt glyph_index = FT_Get_Char_Index(face, code.unwrap);
+        iter.chop(size);
 
         auto error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
         assert(!error);

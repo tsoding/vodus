@@ -1,0 +1,3 @@
+[0:00:00] <Tsoding> Hello, World!
+[0:00:01] <Tsoding> Привет, Мир!
+[0:00:02] <Tsoding> こんにちは世界!
