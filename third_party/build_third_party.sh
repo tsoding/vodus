@@ -21,7 +21,7 @@ if [ `uname -s` = "FreeBSD" ]; then
 fi
 
 if [ ! -d "ffmpeg-${FFMPEG_VERSION}-dist" ]; then
-    wget "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"
+    wget --no-dns-cache "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"
     tar fvx "ffmpeg-${FFMPEG_VERSION}.tar.xz"
     mkdir "ffmpeg-${FFMPEG_VERSION}-dist"
     
@@ -33,7 +33,7 @@ if [ ! -d "ffmpeg-${FFMPEG_VERSION}-dist" ]; then
 fi
 
 if [ ! -d "giflib-${GIFLIB_VERSION}-dist" ]; then
-    wget "https://deac-riga.dl.sourceforge.net/project/giflib/giflib-${GIFLIB_VERSION}.tar.gz"
+    wget --no-dns-cache "https://deac-riga.dl.sourceforge.net/project/giflib/giflib-${GIFLIB_VERSION}.tar.gz"
     tar fvx "giflib-${GIFLIB_VERSION}.tar.gz"
     mkdir "giflib-${GIFLIB_VERSION}-dist"
 
