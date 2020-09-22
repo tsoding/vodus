@@ -30,8 +30,6 @@ using namespace aids;
 #include <smmintrin.h>
 #endif // VODUS_SSE
 
-const size_t VODUS_MESSAGES_CAPACITY = 1024;
-
 // PLEASE READ THIS --> https://en.wikipedia.org/wiki/Single_Compilation_Unit
 #include "./vodus_error.cpp"
 #include "./vodus_queue.cpp"

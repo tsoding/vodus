@@ -50,7 +50,7 @@ Video_Params default_video_params() {
     params.text_color        = {200, 200, 200, 255};
     params.bitrate           = 400'000;
     params.font              = ""_sv;
-    params.messages_limit     = VODUS_MESSAGES_CAPACITY;
+    params.messages_limit    = {};
     return params;
 }
 
@@ -142,7 +142,7 @@ void patch_video_params_from_flag(Video_Params *params, String_View flag, String
     } else if (flag == "font"_sv) {
         params->font = value;
     } else if (flag == "messages_limit"_sv || flag == "messages-limit"_sv) {
-        params->messages_limit = parse_integer_flag<size_t>(flag, value);
+        params->messages_limit = {true, parse_integer_flag<size_t>(flag, value)};
     } else if (flag == "output_type"_sv || flag == "output-type"_sv) {
         if (value == "video"_sv) {
             params->output_type = Output_Type::Video;

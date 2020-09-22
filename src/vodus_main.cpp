@@ -143,9 +143,9 @@ int main(int argc, char *argv[])
         abort();
     }
 
-    Message *messages = new Message[VODUS_MESSAGES_CAPACITY];
+    Message *messages = nullptr;
+    size_t messages_size = parse_messages_from_string_view(input.unwrap, &messages, params);
     defer(delete[] messages);
-    size_t messages_size = parse_messages_from_string_view(input.unwrap, messages, params);
 
     Encoder encoder = {};
     switch (params.output_type) {
