@@ -202,19 +202,25 @@ String_View chop_nickname(String_View *input)
     return input->chop_by_delim('>');
 }
 
-size_t parse_messages_from_string_view(String_View input, Message *messages, Video_Params params)
+size_t parse_messages_from_string_view(String_View input, Message **messages, Video_Params params)
 {
+    size_t expected_messages_size = input.count_chars('\n') + 1;
+    if (params.messages_limit.has_value) {
+        expected_messages_size = min(expected_messages_size, params.messages_limit.unwrap);
+    }
+
+    *messages = new Message[expected_messages_size];
+
     size_t messages_size = 0;
-    while (input.count > 0) {
-        assert(messages_size < VODUS_MESSAGES_CAPACITY);
+    while (input.count > 0 && messages_size < expected_messages_size) {
         String_View message = input.chop_by_delim('\n');
-        messages[messages_size].timestamp = (int) chop_timestamp(&message);
-        messages[messages_size].nickname = chop_nickname(&message);
-        messages[messages_size].message = message.trim();
+        (*messages)[messages_size].timestamp = (int) chop_timestamp(&message);
+        (*messages)[messages_size].nickname = chop_nickname(&message);
+        (*messages)[messages_size].message = message.trim();
         messages_size++;
     }
-    messages_size = min(messages_size, params.messages_limit);
-    std::sort(messages, messages + messages_size,
+
+    std::sort(*messages, *messages + messages_size,
               [](const Message &m1, const Message &m2) {
                   return m1.timestamp < m2.timestamp;
               });
