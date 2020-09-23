@@ -22,6 +22,21 @@ struct Video_Params
     Maybe<size_t> messages_limit;
 };
 
+String_View param_names[] = {
+    "output_type"_sv,
+    "fps"_sv,
+    "width"_sv,
+    "height"_sv,
+    "font_size"_sv,
+    "background_color"_sv,
+    "nickname_color"_sv,
+    "text_color"_sv,
+    "bitrate"_sv,
+    "font"_sv,
+    "messages_limit"_sv,
+};
+const size_t param_names_count = sizeof(param_names) / sizeof(param_names[0]);
+
 void print1(FILE *stream, Video_Params params);
 
 Video_Params default_video_params();

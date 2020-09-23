@@ -121,6 +121,31 @@ void patch_video_params_from_file(Video_Params *params, String_View filepath)
     }
 }
 
+
+size_t levenshtein(String_View a, String_View b)
+{
+    size_t *dp = new size_t[(a.count + 1) * (b.count + 1)];
+#define DP(row, column) dp[(row) * (b.count + 1) + (column)]
+    defer(delete[] dp);
+    memset(dp, 0, sizeof(size_t) * (a.count + 1) * (b.count + 1));
+
+    for (size_t i = 0; i <= a.count; ++i) {
+        for (size_t j = 0; j <= b.count; ++j) {
+            if (min(i, j) == 0) {
+                DP(i, j) = max(i, j);
+            } else {
+                DP(i, j) = min(
+                    DP(i - 1, j) + 1,
+                    DP(i, j - 1) + 1,
+                    DP(i - 1, j - 1) + (a.data[i - 1] != b.data[j - 1]));
+            }
+        }
+    }
+
+    return DP(a.count, b.count);
+#undef DP
+}
+
 void patch_video_params_from_flag(Video_Params *params, String_View flag, String_View value)
 {
     if (flag == "fps"_sv) {
@@ -153,7 +178,22 @@ void patch_video_params_from_flag(Video_Params *params, String_View flag, String
             abort();
         }
     } else {
-        println(stderr, "Unknown flag `", flag, "`");
+        size_t n = ULONG_MAX;
+        String_View corrected_flag = {};
+        for (size_t i = 0; i < param_names_count; ++i) {
+            auto m = levenshtein(flag, param_names[i]);
+            if (m < n) {
+                n = m;
+                corrected_flag = param_names[i];
+            }
+        }
+
+        const size_t LEVENSHTEIN_CORRECTION_THRESHOLD = 5;
+        if (n <= LEVENSHTEIN_CORRECTION_THRESHOLD) {
+            println(stderr, "Unknown flag `", flag, "`. Maybe you meant `", corrected_flag, "`");
+        } else {
+            println(stderr, "Unknown flag `", flag, "`.");
+        }
         abort();
     }
 }
