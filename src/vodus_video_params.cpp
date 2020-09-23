@@ -121,18 +121,6 @@ void patch_video_params_from_file(Video_Params *params, String_View filepath)
     }
 }
 
-template <typename T>
-T supa_min(T x)
-{
-    return x;
-}
-
-template <typename T, typename... Rest>
-T supa_min(T x, Rest... rest)
-{
-    return min(x, supa_min(rest...));
-}
-
 
 size_t levenshtein(String_View a, String_View b)
 {
@@ -146,7 +134,7 @@ size_t levenshtein(String_View a, String_View b)
             if (min(i, j) == 0) {
                 DP(i, j) = max(i, j);
             } else {
-                DP(i, j) = supa_min(
+                DP(i, j) = min(
                     DP(i - 1, j) + 1,
                     DP(i, j - 1) + 1,
                     DP(i - 1, j - 1) + (a.data[i - 1] != b.data[j - 1]));
