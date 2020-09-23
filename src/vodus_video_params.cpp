@@ -188,7 +188,12 @@ void patch_video_params_from_flag(Video_Params *params, String_View flag, String
             }
         }
 
-        println(stderr, "Unknown flag `", flag, "`. Maybe you meant `", corrected_flag, "`");
+        const size_t LEVENSHTEIN_CORRECTION_THRESHOLD = 5;
+        if (n <= LEVENSHTEIN_CORRECTION_THRESHOLD) {
+            println(stderr, "Unknown flag `", flag, "`. Maybe you meant `", corrected_flag, "`");
+        } else {
+            println(stderr, "Unknown flag `", flag, "`.");
+        }
         abort();
     }
 }
