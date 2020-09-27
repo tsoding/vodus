@@ -9,3 +9,4 @@ TAGS
 /mapping.csv
 .vscode/
 diffimg
+*.o

@@ -18,11 +18,20 @@ DIFFIMG_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb
 .PHONY: all
 all: vodus.release vodus.debug emote_downloader diffimg Makefile
 
-vodus.release: $(wildcard src/vodus*.cpp) $(wildcard src/core*.cpp)
-	$(CXX) $(VODUS_CXXFLAGS) -O3 -o vodus.release src/vodus.cpp $(VODUS_LIBS)
+vodus.release: $(wildcard src/vodus*.cpp) $(wildcard src/core*.cpp) $(wildcard src/stb_image*.h)
+	$(CXX) $(VODUS_CXXFLAGS) -DVODUS_RELEASE -O3 -o vodus.release src/vodus.cpp $(VODUS_LIBS)
 
-vodus.debug: $(wildcard src/vodus*.cpp) $(wildcard src/core*.cpp)
-	$(CXX) $(VODUS_CXXFLAGS) -O0 -fno-builtin -o vodus.debug src/vodus.cpp $(VODUS_LIBS)
+vodus.debug: $(wildcard src/vodus*.cpp) $(wildcard src/core*.cpp) stb_image.o stb_image_resize.o stb_image_write.o
+	$(CXX) $(VODUS_CXXFLAGS) -O0 -fno-builtin -o vodus.debug src/vodus.cpp $(VODUS_LIBS) stb_image.o stb_image_resize.o stb_image_write.o
+
+stb_image.o: src/stb_image.h
+	$(CC) $(CFLAGS) -x c -ggdb -DSTBI_ONLY_PNG -DSTB_IMAGE_IMPLEMENTATION -c -o stb_image.o src/stb_image.h
+
+stb_image_resize.o: src/stb_image_resize.h
+	$(CC) $(CFLAGS) -x c -ggdb -DSTB_IMAGE_RESIZE_IMPLEMENTATION -c -o stb_image_resize.o src/stb_image_resize.h
+
+stb_image_write.o: src/stb_image_write.h
+	$(CC) $(CFLAGS) -x c -ggdb -DSTB_IMAGE_WRITE_IMPLEMENTATION -c -o stb_image_write.o src/stb_image_write.h
 
 emote_downloader: src/emote_downloader.cpp $(wildcard src/core*.cpp)
 	$(CXX) $(EMOTE_DOWNLOADER_CXXFLAGS) -o emote_downloader src/emote_downloader.cpp $(EMOTE_DOWNLOADER_LIBS)
