@@ -127,9 +127,6 @@ int main(int argc, char *argv[])
     Emote_Cache emote_cache = { };
     emote_cache.populate_from_file("./mapping.csv", params.font_size);
 
-    // FFMPEG INIT START //////////////////////////////
-    // FFMPEG INIT STOP //////////////////////////////
-
     // TODO(#35): log is not retrived directly from the Twitch API
     //   See https://github.com/PetterKraabol/Twitch-Chat-Downloader
     if (input_filepath == nullptr) {
