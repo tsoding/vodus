@@ -1,6 +1,6 @@
 struct Message
 {
-    time_t timestamp;
+    uint64_t timestamp;
     String_View nickname;
     String_View message;
 
@@ -156,6 +156,16 @@ struct Message_Buffer
     }
 };
 
+bool expect_optional_char(String_View *input, char x)
+{
+    if (input->count > 0 && *input->data == x) {
+        input->chop(1);
+        return true;
+    }
+
+    return false;
+}
+
 void expect_char(String_View *input, char x)
 {
     if (input->count == 0 || *input->data != x) {
@@ -175,7 +185,7 @@ String_View chop_digits(String_View *input)
     return digits;
 }
 
-time_t chop_timestamp(String_View *input)
+uint64_t chop_timestamp(String_View *input)
 {
     *input = input->trim();
 
@@ -185,12 +195,27 @@ time_t chop_timestamp(String_View *input)
     String_View minutes = chop_digits(input);
     expect_char(input, ':');
     String_View seconds = chop_digits(input);
+
+    uint64_t mseconds_value = 0;
+    if (expect_optional_char(input, '.')) {
+        auto mseconds = chop_digits(input);
+        for (size_t i = 0; i < 3; ++i) {
+            uint64_t x = 0;
+            if (mseconds.count > 0) {
+                x = *mseconds.data - '0';
+                mseconds.chop(1);
+            }
+            mseconds_value = mseconds_value * 10 + x;
+        }
+    }
+
     expect_char(input, ']');
 
-    const time_t timestamp =
-        hours.as_integer<time_t>().unwrap * 60 * 60 +
-        minutes.as_integer<time_t>().unwrap * 60 +
-        seconds.as_integer<time_t>().unwrap;
+    const uint64_t timestamp =
+        (hours.as_integer<uint64_t>().unwrap * 60 * 60 +
+         minutes.as_integer<uint64_t>().unwrap * 60 +
+         seconds.as_integer<uint64_t>().unwrap) * 1000 +
+        mseconds_value;
 
     return timestamp;
 }
@@ -214,7 +239,7 @@ size_t parse_messages_from_string_view(String_View input, Message **messages, Vi
     size_t messages_size = 0;
     while (input.count > 0 && messages_size < expected_messages_size) {
         String_View message = input.chop_by_delim('\n');
-        (*messages)[messages_size].timestamp = (int) chop_timestamp(&message);
+        (*messages)[messages_size].timestamp = chop_timestamp(&message);
         (*messages)[messages_size].nickname = chop_nickname(&message);
         (*messages)[messages_size].message = message.trim();
         messages_size++;
