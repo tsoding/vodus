@@ -41,6 +41,14 @@ jobs:
           name: output.mpeg
           path: ./output.mpeg
 
+  build-macos-clang:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: install dependencies
+        run: |
+          brew install nasm freetype2 openssl
+
   build-linux-clang:
     runs-on: ubuntu-18.04
     steps:
@@ -79,5 +87,4 @@ jobs:
           name: output.mpeg
           path: ./output.mpeg
 
-# TODO(#5): no MacOS build
 # TODO(#8): no Windows build
