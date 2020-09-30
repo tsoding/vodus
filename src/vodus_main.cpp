@@ -23,14 +23,14 @@ void sample_chat_log_animation(Message *messages,
     const float VODUS_DELTA_TIME_SEC = 1.0f / params.fps;
     const size_t TRAILING_BUFFER_SEC = 2;
     assert(messages_size > 0);
-    const float total_t = messages[messages_size - 1].timestamp + TRAILING_BUFFER_SEC;
+    const float total_t = (float) messages[messages_size - 1].timestamp / 1000.0f + TRAILING_BUFFER_SEC;
     for (; message_end < messages_size; ++frame_index) {
         if (message_cooldown <= 0.0f) {
             message_buffer->push(messages[message_end], face, emote_cache, params);
 
             message_end += 1;
-            auto t1 = messages[message_end - 1].timestamp;
-            auto t2 = messages[message_end].timestamp;
+            auto t1 = (float) messages[message_end - 1].timestamp / 1000.0f;
+            auto t2 = (float) messages[message_end].timestamp / 1000.0f;
             message_cooldown = t2 - t1;
         }
 
