@@ -35,6 +35,8 @@ fi
 if [ ! -d "giflib-${GIFLIB_VERSION}-dist" ]; then
     wget --no-dns-cache "https://deac-riga.dl.sourceforge.net/project/giflib/giflib-${GIFLIB_VERSION}.tar.gz"
     tar fvx "giflib-${GIFLIB_VERSION}.tar.gz"
+    # NOTE: Taken from here https://sourceforge.net/p/giflib/bugs/133/
+    patch "giflib-${GIFLIB_VERSION}/Makefile" < Makefile.patch
     mkdir "giflib-${GIFLIB_VERSION}-dist"
 
     cd "giflib-${GIFLIB_VERSION}"

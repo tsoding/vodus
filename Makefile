@@ -1,3 +1,5 @@
+UNAME:=$(shell uname)
+
 VODUS_EXTRA_CXXFLAGS=
 
 ifdef VODUS_SSE
@@ -7,7 +9,11 @@ endif
 # TODO(#87): we need an option to build with system libraries
 VODUS_PKGS=freetype2
 VODUS_CXXFLAGS=-Wall -fno-exceptions -std=c++17 $(VODUS_EXTRA_CXXFLAGS) -ggdb `pkg-config --cflags $(VODUS_PKGS)` -I./third_party/ffmpeg-4.3-dist/usr/local/include/ -I./third_party/giflib-5.2.1-dist/usr/local/include/
-VODUS_LIBS=`pkg-config --libs $(VODUS_PKGS)` -L./third_party/giflib-5.2.1-dist/usr/local/lib/ -l:libgif.a -L./third_party/ffmpeg-4.3-dist/usr/local/lib/ -lavcodec -lavutil -lswresample -pthread -lm -llzma -lz
+VODUS_LIBS=`pkg-config --libs $(VODUS_PKGS)` -L./third_party/giflib-5.2.1-dist/usr/local/lib/ ./third_party/giflib-5.2.1-dist/usr/local/lib/libgif.a -L./third_party/ffmpeg-4.3-dist/usr/local/lib/ -lavcodec -lavutil -lswresample -pthread -lm -llzma -lz
+
+ifeq ($(UNAME), Darwin)
+VODUS_LIBS += -framework AVFoundation -framework VideoToolbox -framework CoreVideo -framework AudioToolbox -framework CoreMedia -framework CoreFoundation -liconv
+endif
 
 EMOTE_DOWNLOADER_PKGS=libcurl
 EMOTE_DOWNLOADER_CXXFLAGS=-Wall -fno-exceptions -std=c++17 -ggdb `pkg-config --cflags $(EMOTE_DOWNLOADER_PKGS)`
