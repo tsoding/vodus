@@ -58,6 +58,9 @@ jobs:
         run: |
           cd third_party
           ./build_third_party.sh
+          echo "------------------------------"
+          find ./giflib-5.2.1-dist/
+          echo "------------------------------"
           cd ..
       - name: build vodus
         run: |
