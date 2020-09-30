@@ -48,6 +48,17 @@ jobs:
       - name: install dependencies
         run: |
           brew install nasm freetype2 openssl
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ./third_party/ffmpeg-4.3-dist/
+            ./third_party/giflib-5.2.1-dist/
+          key: ${{ runner.os }}-ffmpeg-4.3-giflib-5.2.1
+      - name: build third-party things
+        run: |
+          cd third_party
+          ./build_third_party.sh
+          cd ..
 
   build-linux-clang:
     runs-on: ubuntu-18.04
