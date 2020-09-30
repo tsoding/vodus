@@ -1,6 +1,8 @@
 [0:00:00] <pajaWalk> pajaWalk1
 [0:00:01] <FeelsDankMan> WAYTOODANK monkaTOS
+[0:00:01.5] <FeelsDankMan> WAYTOODANK monkaTOS
 [0:00:02] <FeelsDankMan> WAYTOODANK monkaTOS
+[0:00:02.500] <FeelsDankMan> WAYTOODANK monkaTOS
 [0:00:03] <pajaWalk> pajaWalk1 pajaWalk2 pajaWalk3
 [0:00:04] <pajaWalk> pajaWalk1 pajaWalk2 pajaWalk3
 [0:00:05] <pajaWalk> pajaWalk1 pajaWalk2 pajaWalk3
