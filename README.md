@@ -15,7 +15,7 @@ changed at any moment or stop working at all.**
 #### Debian
 
 ```console
-$ sudo apt-get install nasm libfreetype6-dev libcurl4-openssl-dev
+$ sudo apt-get install nasm libfreetype6-dev libcurl4-openssl-dev libpcre2-dev
 ```
 
 #### NixOS
@@ -56,3 +56,7 @@ $ ./emote_downloader
 ```console
 $ make render
 ```
+
+## Custom Log Format
+
+<!-- TODO: document how to parse custom log formats with message_regex config parameter -->

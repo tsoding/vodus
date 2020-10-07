@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
     }
 
     Message *messages = nullptr;
-    size_t messages_size = parse_messages_from_string_view(input.unwrap, &messages, params);
+    size_t messages_size = parse_messages_from_string_view(input.unwrap, &messages, params, input_filepath);
     defer(delete[] messages);
 
     Encoder encoder = {};
