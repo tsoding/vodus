@@ -20,6 +20,7 @@ struct Video_Params
     int bitrate;
     String_View font;
     Maybe<size_t> messages_limit;
+    String_View message_regex;
 };
 
 String_View param_names[] = {
@@ -34,6 +35,7 @@ String_View param_names[] = {
     "bitrate"_sv,
     "font"_sv,
     "messages_limit"_sv,
+    "message_regex"_sv,
 };
 const size_t param_names_count = sizeof(param_names) / sizeof(param_names[0]);
 
