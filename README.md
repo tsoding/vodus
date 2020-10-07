@@ -59,4 +59,4 @@ $ make render
 
 ## Custom Log Format
 
-<!-- TODO: document how to parse custom log formats with message_regex config parameter -->
+<!-- TODO(#135): document how to parse custom log formats with message_regex config parameter -->
