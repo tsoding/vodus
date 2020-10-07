@@ -221,7 +221,7 @@ size_t parse_messages_from_string_view(String_View input, Message **messages, Vi
     if (re == NULL) {
         PCRE2_UCHAR buffer[256];
         pcre2_get_error_message(errorcode, buffer, sizeof(buffer));
-        // TODO: better PCRE2 compilation errors
+        // TODO(#136): better PCRE2 compilation errors
         printf("PCRE2 compilation of message_regex failed at offset %d: %s\n", (int)erroroffset, buffer);
         exit(1);
     }
