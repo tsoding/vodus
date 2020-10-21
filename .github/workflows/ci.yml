@@ -16,6 +16,7 @@ jobs:
           path: |
             ./third_party/ffmpeg-4.3-dist/
             ./third_party/giflib-5.2.1-dist/
+            ./third_party/glfw-3.3.2-dist/
           key: ${{ runner.os }}-ffmpeg-4.3-giflib-5.2.1
       - name: build third-party things
         run: |
@@ -53,6 +54,7 @@ jobs:
           path: |
             ./third_party/ffmpeg-4.3-dist/
             ./third_party/giflib-5.2.1-dist/
+            ./third_party/glfw-3.3.2-dist/
           key: ${{ runner.os }}-ffmpeg-4.3-giflib-5.2.1
       - name: build third-party things
         run: |
@@ -92,6 +94,7 @@ jobs:
           path: |
             ./third_party/ffmpeg-4.3-dist/
             ./third_party/giflib-5.2.1-dist/
+            ./third_party/glfw-3.3.2-dist/
           key: ${{ runner.os }}-ffmpeg-4.3-giflib-5.2.1
       - name: build third-party things
         run: |

@@ -38,6 +38,9 @@ using namespace aids;
 #include <smmintrin.h>
 #endif // VODUS_SSE
 
+#define GL_GLEXT_PROTOTYPES
+#include <GLFW/glfw3.h>
+
 // PLEASE READ THIS --> https://en.wikipedia.org/wiki/Single_Compilation_Unit
 #include "./vodus_error.cpp"
 #include "./vodus_queue.cpp"

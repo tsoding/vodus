@@ -18,6 +18,9 @@ void print1(FILE *stream, Output_Type output_type)
     case Output_Type::PNG:
         print1(stream, "png");
         break;
+    case Output_Type::Preview:
+        print1(stream, "preview");
+        break;
     }
 }
 
@@ -178,6 +181,8 @@ void patch_video_params_from_flag(Video_Params *params, String_View flag, String
             params->output_type = Output_Type::Video;
         } else if (value == "png"_sv) {
             params->output_type = Output_Type::PNG;
+        } else if (value == "preview"_sv) {
+            params->output_type = Output_Type::Preview;
         } else {
             println(stderr, "Unknown output type `", value, "`");
             abort();

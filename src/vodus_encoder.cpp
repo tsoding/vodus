@@ -113,3 +113,162 @@ void pngencoder_encode(PNGEncoder_Context *context, Image32 surface, int frame_i
         abort();
     }
 }
+
+const char *vertex_shader_source =
+    "#version 130\n"
+    "out vec2 texcoord;"
+    "void main(void)\n"
+    "{\n"
+    "    int gray = gl_VertexID ^ (gl_VertexID >> 1);\n"
+    "    gl_Position = vec4(\n"
+    "        2 * (gray / 2) - 1,\n"
+    "        2 * (gray % 2) - 1,\n"
+    "        0.0,\n"
+    "        1.0);\n"
+    "    texcoord = vec2(gray / 2, 1 - gray % 2);\n"
+    "}\n";
+const char *fragment_shader_source =
+    "#version 130\n"
+    "in vec2 texcoord;\n"
+    "uniform sampler2D frame;\n"
+    "out vec4 color;\n"
+    "void main(void) {\n"
+    "    color = texture(frame, texcoord);\n"
+    "    //color = vec4(0.5, 0.5, 0.5, 1.0);\n"
+    "}\n";
+
+struct Shader
+{
+    GLuint unwrap;
+};
+
+Shader compile_shader(const char *source_code, GLenum shader_type)
+{
+    GLuint shader = {};
+    shader = glCreateShader(shader_type);
+    if (shader == 0) {
+        println(stderr, "Could not create a shader");
+        exit(1);
+    }
+
+    glShaderSource(shader, 1, &source_code, 0);
+    glCompileShader(shader);
+
+    GLint compiled = 0;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+    if (!compiled) {
+        GLchar buffer[1024];
+        int length = 0;
+        glGetShaderInfoLog(shader, sizeof(buffer), &length, buffer);
+        println(stderr, "Could not compile shader: ", buffer);
+        exit(1);
+    }
+
+    return {shader};
+}
+
+struct Program
+{
+    GLuint unwrap;
+};
+
+Program link_program(Shader vertex_shader, Shader fragment_shader)
+{
+    GLuint program = glCreateProgram();
+
+    if (program == 0) {
+        println(stderr, "Could not create shader program");
+        exit(1);
+    }
+
+    glAttachShader(program, vertex_shader.unwrap);
+    glAttachShader(program, fragment_shader.unwrap);
+    glLinkProgram(program);
+
+    GLint linked = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &linked);
+    if (!linked) {
+        GLchar buffer[1024];
+        int length = 0;
+        glGetProgramInfoLog(program, sizeof(buffer), &length, buffer);
+        println(stdout, "Could not link the program: ", buffer);
+        exit(1);
+    }
+
+    return {program};
+}
+
+Preview_Context *new_preview_context(Video_Params params)
+{
+    Preview_Context *context = new Preview_Context();
+
+    if (!glfwInit()) {
+        const char *description = nullptr;
+        glfwGetError(&description);
+        println(stderr, "Could not initialize GLFW: ", description);
+        exit(1);
+    }
+
+    context->window = glfwCreateWindow(params.width, params.height, "Vodus", NULL, NULL);
+    if (!context->window) {
+        const char *description = nullptr;
+        glfwGetError(&description);
+        println(stderr, "Could not create window: ", description);
+        exit(1);
+    }
+
+    glfwMakeContextCurrent(context->window);
+
+    // glfwSetFramebufferSizeCallback(window, framebuffer_resize);
+
+    GLuint texture_id;
+
+    glGenTextures(1, &texture_id);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture_id);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    println(stdout, "Compiling vertex shader...");
+    Shader vertex_shader = compile_shader(vertex_shader_source, GL_VERTEX_SHADER);
+    println(stdout, "Compiling fragment shader...");
+    Shader fragment_shader = compile_shader(fragment_shader_source, GL_FRAGMENT_SHADER);
+    println(stdout, "Linking the program...");
+    Program program = link_program(vertex_shader, fragment_shader);
+
+    glUseProgram(program.unwrap);
+
+    GLint frame_sampler = glGetUniformLocation(program.unwrap, "frame");
+    glUniform1i(frame_sampler, 0);
+
+    return context;
+}
+
+void previewencoder_encode(Preview_Context *context, Image32 surface, int frame_index)
+{
+    if (glfwWindowShouldClose(context->window)) {
+        // TODO: encoder does not provide a mechanism to exit prematurely
+        exit(0);
+    }
+
+    // Rebind the texture
+    glTexImage2D(GL_TEXTURE_2D,
+                 0,
+                 GL_RGBA,
+                 surface.width,
+                 surface.height,
+                 0,
+                 GL_RGBA,
+                 GL_UNSIGNED_BYTE,
+                 surface.pixels);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    // TODO: Preview is not synced with real time
+    // TODO: Preview does not allow to pause and move backward/forward
+
+    glDrawArrays(GL_QUADS, 0, 4);
+    glfwSwapBuffers(context->window);
+    glfwPollEvents();
+}
