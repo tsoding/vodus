@@ -39,7 +39,7 @@ void sample_chat_log_animation(Message *messages,
 
         fill_image32_with_color(surface, params.background_color);
         message_buffer->render(surface, face, emote_cache, params);
-        encoder.encode(surface, frame_index);
+        encoder.encode(params, surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
@@ -54,7 +54,7 @@ void sample_chat_log_animation(Message *messages,
 
         emote_cache->update_gifs(VODUS_DELTA_TIME_SEC);
         message_buffer->update(VODUS_DELTA_TIME_SEC, face, emote_cache, params);
-        encoder.encode(surface, frame_index);
+        encoder.encode(params, surface, frame_index);
 
         t += VODUS_DELTA_TIME_SEC;
         print(stdout, "\rRendered ", (int) roundf(t), "/", (int) roundf(total_t), " seconds");
