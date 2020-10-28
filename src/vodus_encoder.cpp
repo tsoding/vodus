@@ -203,17 +203,13 @@ Preview_Context *new_preview_context(Video_Params params)
     Preview_Context *context = new Preview_Context();
 
     if (!glfwInit()) {
-        const char *description = nullptr;
-        glfwGetError(&description);
-        println(stderr, "Could not initialize GLFW: ", description);
+        println(stderr, "Could not initialize GLFW");
         exit(1);
     }
 
     context->window = glfwCreateWindow(params.width, params.height, "Vodus", NULL, NULL);
     if (!context->window) {
-        const char *description = nullptr;
-        glfwGetError(&description);
-        println(stderr, "Could not create window: ", description);
+        println(stderr, "Could not create GLFW window");
         exit(1);
     }
 

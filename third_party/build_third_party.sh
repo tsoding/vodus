@@ -5,7 +5,6 @@ set -e
 # TODO(#89): Integrate ./build_third_party.sh into the main build process
 FFMPEG_VERSION=4.3
 GIFLIB_VERSION=5.2.1
-GLFW_VERSION=3.3.2
 MAKE=make
 
 # TODO(#102): ./build_third_party.sh does not respect other BSD's or Darwin that might not use GNU make
@@ -43,18 +42,5 @@ if [ ! -d "giflib-${GIFLIB_VERSION}-dist" ]; then
     cd "giflib-${GIFLIB_VERSION}"
       $MAKE -j5
       DESTDIR="../giflib-${GIFLIB_VERSION}-dist" $MAKE install
-    cd ..
-fi
-
-if [ ! -d "glfw-${GLFW_VERSION}-dist" ]; then
-    wget --no-dns-cache "https://github.com/glfw/glfw/releases/download/${GLFW_VERSION}/glfw-${GLFW_VERSION}.zip"
-
-    unzip "glfw-${GLFW_VERSION}.zip"
-    mkdir "glfw-${GLFW_VERSION}-dist"
-
-    cd "glfw-${GLFW_VERSION}"
-      cmake .
-      $MAKE -j5
-      DESTDIR="../glfw-${GLFW_VERSION}-dist" $MAKE install
     cd ..
 fi
