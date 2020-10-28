@@ -262,7 +262,7 @@ void previewencoder_encode(Preview_Context *context, Image32 surface, int frame_
     glGenerateMipmap(GL_TEXTURE_2D);
 
     // TODO(#141): Preview is not synced with real time
-    // TODO: Preview does not allow to pause and move backward/forward
+    // TODO(#142): Preview does not allow to pause and move backward/forward
 
     glDrawArrays(GL_QUADS, 0, 4);
     glfwSwapBuffers(context->window);
