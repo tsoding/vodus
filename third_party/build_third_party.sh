@@ -44,4 +44,3 @@ if [ ! -d "giflib-${GIFLIB_VERSION}-dist" ]; then
       DESTDIR="../giflib-${GIFLIB_VERSION}-dist" $MAKE install
     cd ..
 fi
-

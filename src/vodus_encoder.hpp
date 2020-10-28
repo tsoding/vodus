@@ -34,4 +34,13 @@ struct PNGEncoder_Context
 
 void pngencoder_encode(PNGEncoder_Context *context, Image32 surface, int frame_index);
 
+struct Preview_Context
+{
+    GLFWwindow *window;
+};
+
+Preview_Context *new_preview_context(Video_Params parsm);
+
+void previewencoder_encode(Preview_Context *context, Image32 surface, int frame_index);
+
 #endif  // VODUS_ENCODER_HPP_

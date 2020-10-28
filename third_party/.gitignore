@@ -1,5 +1,7 @@
 *.tar.xz
 *.tar.gz
+*.zip
 *-dist/
 ffmpeg-*/
 giflib-*/
+glfw-*/

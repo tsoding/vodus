@@ -4,7 +4,8 @@
 enum class Output_Type
 {
     Video,
-    PNG
+    PNG,
+    Preview
 };
 
 struct Video_Params

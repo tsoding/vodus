@@ -1,3 +1,4 @@
+
 void sample_chat_log_animation(Message *messages,
                                size_t messages_size,
                                FT_Face face,
@@ -155,6 +156,11 @@ int main(int argc, char *argv[])
         encoder.context = new PNGEncoder_Context {cstr_as_string_view(output_filepath)};
         encoder.encode_func = (Encode_Func) &pngencoder_encode;
     } break;
+
+    case Output_Type::Preview: {
+        encoder.context = new_preview_context(params);
+        encoder.encode_func = (Encode_Func) &previewencoder_encode;
+    } break;
     }
 
     {
@@ -179,6 +185,11 @@ int main(int argc, char *argv[])
 
     case Output_Type::PNG: {
         delete ((PNGEncoder_Context*) encoder.context);
+    } break;
+
+    case Output_Type::Preview: {
+        glfwTerminate();
+        delete ((Preview_Context*)encoder.context);
     } break;
     }
 
