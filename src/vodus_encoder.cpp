@@ -246,7 +246,7 @@ Preview_Context *new_preview_context(Video_Params params)
 void delay(size_t milliseconds)
 {
 #ifdef _WIN32
-#error "TODO: delay is not implemented for windows"
+#error "TODO(#144): delay is not implemented for windows"
 #else
     usleep(milliseconds * 1000);
 #endif // _WIN32
