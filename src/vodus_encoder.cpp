@@ -245,7 +245,7 @@ Preview_Context *new_preview_context(Video_Params params)
 void previewencoder_encode(Preview_Context *context, Image32 surface, int frame_index)
 {
     if (glfwWindowShouldClose(context->window)) {
-        // TODO: encoder does not provide a mechanism to exit prematurely
+        // TODO(#140): encoder does not provide a mechanism to exit prematurely
         exit(0);
     }
 
