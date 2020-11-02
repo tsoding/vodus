@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include "vodus_encoder.hpp"
 
 void encode_avframe(AVCodecContext *context, AVFrame *frame, AVPacket *pkt, FILE *outfile)
@@ -35,7 +36,7 @@ void slap_image32_onto_avframe(Image32 frame_image32, AVFrame *avframe)
     }
 }
 
-void avencoder_encode(AVEncoder_Context *context, Image32 surface, int frame_index)
+void avencoder_encode(AVEncoder_Context *context, Video_Params, Image32 surface, int frame_index)
 {
     slap_image32_onto_avframe(surface, context->frame);
     context->frame->pts = frame_index;
@@ -103,7 +104,7 @@ AVEncoder_Context *new_avencoder_context(Video_Params params, const char *output
     return result;
 }
 
-void pngencoder_encode(PNGEncoder_Context *context, Image32 surface, int frame_index)
+void pngencoder_encode(PNGEncoder_Context *context, Video_Params, Image32 surface, int frame_index)
 {
     char buffer[1024];
     String_Buffer path = {sizeof(buffer), buffer};
@@ -242,7 +243,16 @@ Preview_Context *new_preview_context(Video_Params params)
     return context;
 }
 
-void previewencoder_encode(Preview_Context *context, Image32 surface, int frame_index)
+void delay(size_t milliseconds)
+{
+#ifdef _WIN32
+#error "TODO(#144): delay is not implemented for windows"
+#else
+    usleep(milliseconds * 1000);
+#endif // _WIN32
+}
+
+void previewencoder_encode(Preview_Context *context, Video_Params params, Image32 surface, int frame_index)
 {
     if (glfwWindowShouldClose(context->window)) {
         // TODO(#140): encoder does not provide a mechanism to exit prematurely
@@ -261,10 +271,18 @@ void previewencoder_encode(Preview_Context *context, Image32 surface, int frame_
                  surface.pixels);
     glGenerateMipmap(GL_TEXTURE_2D);
 
-    // TODO(#141): Preview is not synced with real time
     // TODO(#142): Preview does not allow to pause and move backward/forward
 
     glDrawArrays(GL_QUADS, 0, 4);
     glfwSwapBuffers(context->window);
     glfwPollEvents();
+
+    clock_t end = clock();
+    const auto delta_time = 1000 / params.fps;
+    assert(context->begin <= end);
+    const auto frame_time = (size_t) (end - context->begin);
+    if (delta_time >= frame_time) {
+        delay(delta_time - frame_time);
+    }
+    context->begin = end;
 }
