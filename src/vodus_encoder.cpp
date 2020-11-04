@@ -280,7 +280,7 @@ void previewencoder_encode(Preview_Context *context, Video_Params params, Image3
     clock_t end = clock();
     const auto delta_time = 1000 / params.fps;
     assert(context->begin <= end);
-    const auto frame_time = (size_t) (end - context->begin);
+    const auto frame_time = (size_t) (end - context->begin) / 1000;
     if (delta_time >= frame_time) {
         delay(delta_time - frame_time);
     }
