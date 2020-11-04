@@ -256,10 +256,75 @@ void append_global_ffz_mapping(CURL *curl,
     }
 }
 
-void append_bttv_mapping(CURL *curl,
-                         const char *emotes_url,
-                         FILE *mapping,
-                         Fixed_Array<Curl_Download, 1024> *downloads)
+void append_bttv_emotes_array(Json_Array emotes_array,
+                              FILE *mapping,
+                              Fixed_Array<Curl_Download, 1024> *downloads)
+{
+    FOR_JSON (Json_Array, emote, emotes_array) {
+        expect_json_type(emote->value, JSON_OBJECT);
+
+        auto emote_id = json_object_value_by_key(emote->value.object, SLT("id"));
+        expect_json_type(emote_id, JSON_STRING);
+
+        auto emote_code = json_object_value_by_key(emote->value.object, SLT("code"));
+        expect_json_type(emote_code, JSON_STRING);
+
+        auto emote_imageType = json_object_value_by_key(emote->value.object, SLT("imageType"));
+        expect_json_type(emote_imageType, JSON_STRING);
+
+        Curl_Download download = {};
+
+        download.file.write("emotes/emote-");
+        download.file.write(downloads->size);
+        download.file.write(".");
+        download.file.write(emote_imageType.string.data, emote_imageType.string.len);
+
+        download.url.write("https://cdn.betterttv.net/emote/");
+        download.url.write(emote_id.string.data, emote_id.string.len);
+        download.url.write("/3x");
+
+        println(mapping, emote_code.string, ",", download.file);
+        downloads->push(download);
+    }
+}
+
+void append_global_bttv_mapping(CURL *curl,
+                                const char *emotes_url,
+                                FILE *mapping,
+                                Fixed_Array<Curl_Download, 1024> *downloads)
+{
+    curl_buffer.clean();
+
+    auto res = curl_perform_to_string_buffer(curl, emotes_url, &curl_buffer);
+    if (res != CURLE_OK) {
+        println(stderr, "curl_perform_to_string_buffer() failed: ",
+                curl_easy_strerror(res));
+        abort();
+    }
+
+    Memory memory = {};
+    memory.capacity = JSON_MEMORY_BUFFER_CAPACITY;
+    memory.buffer = json_memory_buffer;
+
+    String source = {
+        curl_buffer.size,
+        curl_buffer.data
+    };
+
+    Json_Result result = parse_json_value(&memory, source);
+    if (result.is_error) {
+        print_json_error(stdout, result, source, emotes_url);
+        abort();
+    }
+
+    expect_json_type(result.value, JSON_ARRAY);
+    append_bttv_emotes_array(result.value.array, mapping, downloads);
+}
+
+void append_channel_bttv_mapping(CURL *curl,
+                                 const char *emotes_url,
+                                 FILE *mapping,
+                                 Fixed_Array<Curl_Download, 1024> *downloads)
 {
     curl_buffer.clean();
 
@@ -286,35 +351,14 @@ void append_bttv_mapping(CURL *curl,
     }
 
     expect_json_type(result.value, JSON_OBJECT);
-    auto emotes = json_object_value_by_key(result.value.object, SLT("emotes"));
-    expect_json_type(emotes, JSON_ARRAY);
 
-    FOR_JSON (Json_Array, emote, emotes.array) {
-        expect_json_type(emote->value, JSON_OBJECT);
+    auto channel_emotes = json_object_value_by_key(result.value.object, SLT("channelEmotes"));
+    expect_json_type(channel_emotes, JSON_ARRAY);
+    append_bttv_emotes_array(channel_emotes.array, mapping, downloads);
 
-        auto emote_id = json_object_value_by_key(emote->value.object, SLT("id"));
-        expect_json_type(emote_id, JSON_STRING);
-
-        auto emote_code = json_object_value_by_key(emote->value.object, SLT("code"));
-        expect_json_type(emote_code, JSON_STRING);
-
-        auto emote_imageType = json_object_value_by_key(emote->value.object, SLT("imageType"));
-        expect_json_type(emote_imageType, JSON_STRING);
-
-        Curl_Download download = {};
-
-        download.file.write("emotes/emote-");
-        download.file.write(downloads->size);
-        download.file.write(".");
-        download.file.write(emote_imageType.string.data, emote_imageType.string.len);
-
-        download.url.write("https://cdn.betterttv.net/emote/");
-        download.url.write(emote_id.string.data, emote_id.string.len);
-        download.url.write("/3x");
-
-        println(mapping, emote_code.string, ",", download.file);
-        downloads->push(download);
-    };
+    auto shared_emotes = json_object_value_by_key(result.value.object, SLT("sharedEmotes"));
+    expect_json_type(shared_emotes, JSON_ARRAY);
+    append_bttv_emotes_array(shared_emotes.array, mapping, downloads);
 }
 
 bool is_sep(char x)
@@ -419,9 +463,8 @@ int main(void)
 
     curl_multi_setopt(cm, CURLMOPT_MAXCONNECTS, MAX_PARALLEL);
 
-
-    append_bttv_mapping(curl, "https://api.betterttv.net/2/emotes", mapping, &downloads);
-    append_bttv_mapping(curl, "https://api.betterttv.net/2/channels/tsoding", mapping, &downloads);
+    append_global_bttv_mapping(curl, "https://api.betterttv.net/3/cached/emotes/global", mapping, &downloads);
+    append_channel_bttv_mapping(curl, "https://api.betterttv.net/3/cached/users/twitch/110240192", mapping, &downloads);
     append_global_ffz_mapping(curl, mapping, &downloads);
     append_room_ffz_mapping(curl, "https://api.frankerfacez.com/v1/room/tsoding", mapping, &downloads);
 

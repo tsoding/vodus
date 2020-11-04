@@ -38,6 +38,7 @@ using namespace aids;
 #include <smmintrin.h>
 #endif // VODUS_SSE
 
+#define GLFW_INCLUDE_GLCOREARB
 #define GL_GLEXT_PROTOTYPES
 #include <GLFW/glfw3.h>
 
