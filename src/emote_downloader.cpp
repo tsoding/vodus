@@ -256,6 +256,38 @@ void append_global_ffz_mapping(CURL *curl,
     }
 }
 
+void append_bttv_emotes_array(Json_Array emotes_array,
+                              FILE *mapping,
+                              Fixed_Array<Curl_Download, 1024> *downloads)
+{
+    FOR_JSON (Json_Array, emote, emotes_array) {
+        expect_json_type(emote->value, JSON_OBJECT);
+
+        auto emote_id = json_object_value_by_key(emote->value.object, SLT("id"));
+        expect_json_type(emote_id, JSON_STRING);
+
+        auto emote_code = json_object_value_by_key(emote->value.object, SLT("code"));
+        expect_json_type(emote_code, JSON_STRING);
+
+        auto emote_imageType = json_object_value_by_key(emote->value.object, SLT("imageType"));
+        expect_json_type(emote_imageType, JSON_STRING);
+
+        Curl_Download download = {};
+
+        download.file.write("emotes/emote-");
+        download.file.write(downloads->size);
+        download.file.write(".");
+        download.file.write(emote_imageType.string.data, emote_imageType.string.len);
+
+        download.url.write("https://cdn.betterttv.net/emote/");
+        download.url.write(emote_id.string.data, emote_id.string.len);
+        download.url.write("/3x");
+
+        println(mapping, emote_code.string, ",", download.file);
+        downloads->push(download);
+    }
+}
+
 void append_global_bttv_mapping(CURL *curl,
                                 const char *emotes_url,
                                 FILE *mapping,
@@ -286,33 +318,7 @@ void append_global_bttv_mapping(CURL *curl,
     }
 
     expect_json_type(result.value, JSON_ARRAY);
-
-    FOR_JSON (Json_Array, emote, result.value.array) {
-        expect_json_type(emote->value, JSON_OBJECT);
-
-        auto emote_id = json_object_value_by_key(emote->value.object, SLT("id"));
-        expect_json_type(emote_id, JSON_STRING);
-
-        auto emote_code = json_object_value_by_key(emote->value.object, SLT("code"));
-        expect_json_type(emote_code, JSON_STRING);
-
-        auto emote_imageType = json_object_value_by_key(emote->value.object, SLT("imageType"));
-        expect_json_type(emote_imageType, JSON_STRING);
-
-        Curl_Download download = {};
-
-        download.file.write("emotes/emote-");
-        download.file.write(downloads->size);
-        download.file.write(".");
-        download.file.write(emote_imageType.string.data, emote_imageType.string.len);
-
-        download.url.write("https://cdn.betterttv.net/emote/");
-        download.url.write(emote_id.string.data, emote_id.string.len);
-        download.url.write("/3x");
-
-        println(mapping, emote_code.string, ",", download.file);
-        downloads->push(download);
-    };
+    append_bttv_emotes_array(result.value.array, mapping, downloads);
 }
 
 void append_channel_bttv_mapping(CURL *curl,
@@ -348,61 +354,11 @@ void append_channel_bttv_mapping(CURL *curl,
 
     auto channel_emotes = json_object_value_by_key(result.value.object, SLT("channelEmotes"));
     expect_json_type(channel_emotes, JSON_ARRAY);
-    FOR_JSON (Json_Array, emote, channel_emotes.array) {
-        expect_json_type(emote->value, JSON_OBJECT);
-
-        auto emote_id = json_object_value_by_key(emote->value.object, SLT("id"));
-        expect_json_type(emote_id, JSON_STRING);
-
-        auto emote_code = json_object_value_by_key(emote->value.object, SLT("code"));
-        expect_json_type(emote_code, JSON_STRING);
-
-        auto emote_imageType = json_object_value_by_key(emote->value.object, SLT("imageType"));
-        expect_json_type(emote_imageType, JSON_STRING);
-
-        Curl_Download download = {};
-
-        download.file.write("emotes/emote-");
-        download.file.write(downloads->size);
-        download.file.write(".");
-        download.file.write(emote_imageType.string.data, emote_imageType.string.len);
-
-        download.url.write("https://cdn.betterttv.net/emote/");
-        download.url.write(emote_id.string.data, emote_id.string.len);
-        download.url.write("/3x");
-
-        println(mapping, emote_code.string, ",", download.file);
-        downloads->push(download);
-    }
+    append_bttv_emotes_array(channel_emotes.array, mapping, downloads);
 
     auto shared_emotes = json_object_value_by_key(result.value.object, SLT("sharedEmotes"));
     expect_json_type(shared_emotes, JSON_ARRAY);
-    FOR_JSON (Json_Array, emote, shared_emotes.array) {
-        expect_json_type(emote->value, JSON_OBJECT);
-
-        auto emote_id = json_object_value_by_key(emote->value.object, SLT("id"));
-        expect_json_type(emote_id, JSON_STRING);
-
-        auto emote_code = json_object_value_by_key(emote->value.object, SLT("code"));
-        expect_json_type(emote_code, JSON_STRING);
-
-        auto emote_imageType = json_object_value_by_key(emote->value.object, SLT("imageType"));
-        expect_json_type(emote_imageType, JSON_STRING);
-
-        Curl_Download download = {};
-
-        download.file.write("emotes/emote-");
-        download.file.write(downloads->size);
-        download.file.write(".");
-        download.file.write(emote_imageType.string.data, emote_imageType.string.len);
-
-        download.url.write("https://cdn.betterttv.net/emote/");
-        download.url.write(emote_id.string.data, emote_id.string.len);
-        download.url.write("/3x");
-
-        println(mapping, emote_code.string, ",", download.file);
-        downloads->push(download);
-    }
+    append_bttv_emotes_array(shared_emotes.array, mapping, downloads);
 }
 
 bool is_sep(char x)
