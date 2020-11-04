@@ -12,7 +12,7 @@ VODUS_CXXFLAGS=-Wall -fno-exceptions -std=c++17 $(VODUS_EXTRA_CXXFLAGS) -ggdb `p
 VODUS_LIBS=`pkg-config --libs $(VODUS_PKGS)` -L./third_party/giflib-5.2.1-dist/usr/local/lib/ ./third_party/giflib-5.2.1-dist/usr/local/lib/libgif.a -L./third_party/ffmpeg-4.3-dist/usr/local/lib/ -L./third_party/glfw-3.3.2-dist/usr/local/lib/ -lavcodec -lavutil -lswresample -pthread -lm -llzma -lz -ldl
 
 ifeq ($(UNAME), Darwin)
-VODUS_LIBS += -framework AVFoundation -framework VideoToolbox -framework CoreVideo -framework AudioToolbox -framework CoreMedia -framework CoreFoundation -liconv
+VODUS_LIBS += -framework AVFoundation -framework VideoToolbox -framework CoreVideo -framework AudioToolbox -framework CoreMedia -framework CoreFoundation -framework OpenGL -liconv
 endif
 
 EMOTE_DOWNLOADER_PKGS=libcurl
