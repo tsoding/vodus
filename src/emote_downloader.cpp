@@ -542,7 +542,7 @@ int main(int argc, char **argv)
     String_Buffer channel_url = {sizeof(channel_url_buffer), channel_url_buffer};
 
 
-    // TODO: emote_downloader does not download global Twitch emotes
+    // TODO(#152): emote_downloader does not download global Twitch emotes
     sprint(&channel_url, "https://api.twitchemotes.com/api/v4/channels/", channel_id);
     append_channel_twitch_mapping(curl, channel_url.data, mapping, &downloads);
     channel_url.size = 0;
