@@ -208,14 +208,14 @@ Timestamp chop_timestamp(String_View *input)
 
 String_View chop_nickname(String_View *input)
 {
-    assert(0 && "TODO: chop_nickname is not implemented");
-    return {};
+    input->chop_by_delim('<');
+    auto nickname = input->chop_by_delim('>');
+    return nickname;
 }
 
 String_View chop_message(String_View *input)
 {
-    assert(0 && "TODO: chop_message is not implemented");
-    return {};
+    return input->trim();
 }
 
 size_t parse_messages_from_string_view(String_View input,
