@@ -26,7 +26,7 @@ jobs:
       - name: build vodus
         run: |
           make -B
-          ./emote_downloader
+          ./emote_downloader tsoding 110240192
           make render
           pushd ./test/pajaWalk/
           ./test.sh
@@ -64,7 +64,7 @@ jobs:
       - name: build vodus
         run: |
           make -B
-          ./emote_downloader
+          ./emote_downloader tsoding 110240192
           make render
           pushd ./test/pajaWalk/
           ./test.sh
@@ -104,7 +104,7 @@ jobs:
       - name: build vodus
         run: |
           make -B
-          ./emote_downloader
+          ./emote_downloader tsoding 110240192
           make render
           pushd ./test/pajaWalk/
           ./test.sh
