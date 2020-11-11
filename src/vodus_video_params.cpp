@@ -206,7 +206,7 @@ void patch_video_params_from_flag(Video_Params *params, String_View flag, String
 void patch_video_params_from_args(Video_Params *params, Args *args)
 {
     while (!args->empty()) {
-        auto flag = cstr_as_string_view(args->pop());
+        auto flag = cstr_as_string_view(args->shift());
         flag.chop(2);
 
         if (args->empty()) {
@@ -214,7 +214,7 @@ void patch_video_params_from_args(Video_Params *params, Args *args)
             usage(stderr);
             abort();
         }
-        auto value = cstr_as_string_view(args->pop());
+        auto value = cstr_as_string_view(args->shift());
 
         if (flag == "config"_sv) {
             patch_video_params_from_file(params, value);
