@@ -435,8 +435,28 @@ void create_all_directories(Path dirpath)
 
 Fixed_Array<Curl_Download, 1024> downloads;
 
-int main(void)
+void usage(FILE *stream)
 {
+    println(stdout, "./emote_downloader <channel-name> <channel-id>");
+}
+
+int main(int argc, char **argv)
+{
+    Args args = {argc, argv};
+    args.shift();               // skip program name
+
+    if (args.empty()) {
+        usage(stderr);
+        panic("ERROR: channel-name is not provided");
+    }
+    auto channel_name = args.shift();
+
+    if (args.empty()) {
+        usage(stderr);
+        panic("ERROR: channel-id is not provided");
+    }
+    auto channel_id = args.shift();
+
     curl_global_init(CURL_GLOBAL_DEFAULT);
     defer(curl_global_cleanup());
 
@@ -463,10 +483,20 @@ int main(void)
 
     curl_multi_setopt(cm, CURLMOPT_MAXCONNECTS, MAX_PARALLEL);
 
+    char channel_url_buffer[1024];
+    String_Buffer channel_url = {sizeof(channel_url_buffer), channel_url_buffer};
+
     append_global_bttv_mapping(curl, "https://api.betterttv.net/3/cached/emotes/global", mapping, &downloads);
-    append_channel_bttv_mapping(curl, "https://api.betterttv.net/3/cached/users/twitch/110240192", mapping, &downloads);
+
+    sprint(&channel_url, "https://api.betterttv.net/3/cached/users/twitch/", channel_id);
+    append_channel_bttv_mapping(curl, channel_url.data, mapping, &downloads);
+    channel_url.size = 0;
+
     append_global_ffz_mapping(curl, mapping, &downloads);
-    append_room_ffz_mapping(curl, "https://api.frankerfacez.com/v1/room/tsoding", mapping, &downloads);
+
+    sprint(&channel_url, "https://api.frankerfacez.com/v1/room/", channel_name);
+    append_room_ffz_mapping(curl, channel_url.data, mapping, &downloads);
+    channel_url.size = 0;
 
     size_t transfers = 0;
     for (transfers = 0; transfers < min(downloads.size, MAX_PARALLEL); ++transfers) {

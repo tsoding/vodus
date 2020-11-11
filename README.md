@@ -48,7 +48,7 @@ $ make
 ### Download Emotes
 
 ```console
-$ ./emote_downloader
+$ ./emote_downloader <channel-name> <channel-id>
 ```
 
 ### Render the Sample Video
