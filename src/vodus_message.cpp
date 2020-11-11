@@ -1,6 +1,8 @@
+using Timestamp = uint64_t;
+
 struct Message
 {
-    uint64_t timestamp;
+    Timestamp timestamp;
     String_View nickname;
     String_View message;
 
@@ -167,69 +169,29 @@ struct Message_Buffer
     }
 };
 
-String_View get_substring_view_by_name(pcre2_code *re,
-                                       pcre2_match_data *match_data,
-                                       const char *name,
-                                       String_View subject)
+Timestamp chop_timestamp(String_View *input)
 {
-    PCRE2_SIZE *ovector = pcre2_get_ovector_pointer(match_data);
-    int index = pcre2_substring_number_from_name(re, (PCRE2_SPTR) name);
-    const char* substring_start = subject.data + ovector[2*index];
-    size_t substring_length = ovector[2*index+1] - ovector[2*index];
-    return {substring_length, substring_start};
+    assert(0 && "TODO: chop_timestamp is not implemented");
+    return 0;
 }
 
-uint64_t get_timestamp_from_match_data(pcre2_code *re,
-                                       pcre2_match_data *match_data,
-                                       String_View subject)
+String_View chop_nickname(String_View *input)
 {
-    String_View hours = get_substring_view_by_name(re, match_data, "hours", subject);
-    String_View minutes = get_substring_view_by_name(re, match_data, "minutes", subject);
-    String_View seconds = get_substring_view_by_name(re, match_data, "seconds", subject);
-    String_View mseconds = get_substring_view_by_name(re, match_data, "milliseconds", subject);
-
-    uint64_t mseconds_value = 0;
-    for (size_t i = 0; i < 3; ++i) {
-        uint64_t x = 0;
-        if (mseconds.count > 0) {
-            x = *mseconds.data - '0';
-            mseconds.chop(1);
-        }
-        mseconds_value = mseconds_value * 10 + x;
-    }
-
-    const uint64_t timestamp =
-        (hours.as_integer<uint64_t>().unwrap * 60 * 60 +
-         minutes.as_integer<uint64_t>().unwrap * 60 +
-         seconds.as_integer<uint64_t>().unwrap) * 1000 +
-        mseconds_value;
-
-    return timestamp;
+    assert(0 && "TODO: chop_nickname is not implemented");
+    return {};
 }
 
-size_t parse_messages_from_string_view(String_View input, Message **messages, Video_Params params, const char *input_filepath)
+String_View chop_message(String_View *input)
 {
-    int errorcode = 0;
-    PCRE2_SIZE erroroffset = 0;
-    pcre2_code *re = pcre2_compile(
-        (PCRE2_SPTR) params.message_regex.data,
-        params.message_regex.count, 0,
-        &errorcode,
-        &erroroffset,
-        NULL);
+    assert(0 && "TODO: chop_message is not implemented");
+    return {};
+}
 
-    if (re == NULL) {
-        PCRE2_UCHAR buffer[256];
-        pcre2_get_error_message(errorcode, buffer, sizeof(buffer));
-        // TODO(#136): better PCRE2 compilation errors
-        printf("PCRE2 compilation of message_regex failed at offset %d: %s\n", (int)erroroffset, buffer);
-        exit(1);
-    }
-    defer(pcre2_code_free(re));
-
-    pcre2_match_data *match_data = pcre2_match_data_create_from_pattern(re, NULL);
-    defer(pcre2_match_data_free(match_data));
-
+size_t parse_messages_from_string_view(String_View input,
+                                       Message **messages,
+                                       Video_Params params,
+                                       const char *input_filepath)
+{
     size_t expected_messages_size = input.count_chars('\n') + 1;
     if (params.messages_limit.has_value) {
         expected_messages_size = min(expected_messages_size, params.messages_limit.unwrap);
@@ -238,36 +200,15 @@ size_t parse_messages_from_string_view(String_View input, Message **messages, Vi
     *messages = new Message[expected_messages_size];
 
     size_t messages_size = 0;
-    for (size_t line_number = 1; input.count > 0 && messages_size < expected_messages_size; ++line_number) {
+    for (size_t line_number = 1;
+         input.count > 0 && messages_size < expected_messages_size;
+         ++line_number)
+    {
         String_View message = input.chop_by_delim('\n');
 
-        int rc = pcre2_match(
-            re,                           /* the compiled pattern */
-            (PCRE2_SPTR) message.data,    /* the subject string */
-            message.count,                /* the length of the subject */
-            0,                            /* start at offset 0 in the subject */
-            0,                            /* default options */
-            match_data,                   /* block for storing the result */
-            NULL);                        /* use default match context */
-
-        if (rc < 0) {
-            print(stderr, input_filepath, ":", line_number, ": ");
-
-            switch(rc) {
-            case PCRE2_ERROR_NOMATCH:
-                println(stderr, "message_regex did not match this line");
-                break;
-            default:
-                println(stderr, "Matching error ", rc);
-                break;
-            }
-
-            exit(1);
-        }
-
-        (*messages)[messages_size].timestamp = get_timestamp_from_match_data(re, match_data, message);
-        (*messages)[messages_size].nickname = get_substring_view_by_name(re, match_data, "nickname", message);
-        (*messages)[messages_size].message = get_substring_view_by_name(re, match_data, "message", message).trim();
+        (*messages)[messages_size].timestamp = chop_timestamp(&message);
+        (*messages)[messages_size].nickname  = chop_nickname(&message);
+        (*messages)[messages_size].message   = chop_message(&message);
         messages_size++;
     }
 
@@ -275,5 +216,6 @@ size_t parse_messages_from_string_view(String_View input, Message **messages, Vi
               [](const Message &m1, const Message &m2) {
                   return m1.timestamp < m2.timestamp;
               });
+
     return messages_size;
 }
