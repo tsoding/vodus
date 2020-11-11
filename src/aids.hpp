@@ -21,7 +21,7 @@
 //
 // ============================================================
 //
-// aids — 0.15.0 — std replacement for C++. Designed to aid developers
+// aids — 0.21.0 — std replacement for C++. Designed to aid developers
 // to a better programming experience.
 //
 // https://github.com/rexim/aids
@@ -30,6 +30,15 @@
 //
 // ChangeLog (https://semver.org/ is implied)
 //
+//   0.21.0 void sprint1(String_Buffer *buffer, unsigned int x)
+//   0.20.0 Escape
+//   0.19.0 unwrap_or_panic()a
+//   0.18.0 Rename Args::pop() -> Args::shift()
+//          Add more details to Stretchy_Buffer deprecation message
+//   0.17.0 Dynamic_Array::concat()
+//          Dynamic_Array::expand_capacity()
+//   0.16.0 Dynamic_Array
+//          deprecate Stretchy_Buffer
 //   0.15.0 Make min() and max() variadic
 //   0.14.0 size_t String_View::count_chars(char x) const
 //   0.13.3 Fix control flow in utf8_get_code
@@ -431,34 +440,88 @@ namespace aids
     }
 
     ////////////////////////////////////////////////////////////
-    // STRETCHY BUFFER
+    // DYNAMIC ARRAY
     ////////////////////////////////////////////////////////////
 
-    struct Stretchy_Buffer
+    template <typename T>
+    struct Dynamic_Array
     {
         size_t capacity;
         size_t size;
-        char *data;
+        T *data;
 
-        void push(const char *that_data, size_t that_size)
+        void expand_capacity()
         {
-            if (size + that_size > capacity) {
-                capacity = 2 * capacity + that_size;
-                data = (char*)realloc((void*)data, capacity);
-            }
-
-            memcpy(data + size, that_data, that_size);
-            size += that_size;
+            capacity = data ? 2 * capacity : 256;
+            data = (T*)realloc((void*)data, capacity * sizeof(T));
         }
 
-        template <typename T>
-        void push(T x)
+        void push(T item)
         {
-            push((char*) &x, sizeof(x));
+            while (size + 1 > capacity) {
+                expand_capacity();
+            }
+
+            memcpy(data + size, &item, sizeof(T));
+            size += 1;
+        }
+
+        void concat(const T *items, size_t items_count)
+        {
+            while (size + 1 > capacity) {
+                expand_capacity();
+            }
+
+            memcpy(data + size, items, sizeof(T) * items_count);
+            size += items_count;
+        }
+
+        bool contains(T item)
+        {
+            for (size_t i = 0; i < size; ++i) {
+                if (item == data[i]) {
+                    return true;
+                }
+            }
+
+            return false;
         }
     };
 
-    void print1(FILE *stream, Stretchy_Buffer buffer)
+    ////////////////////////////////////////////////////////////
+    // STRETCHY BUFFER
+    ////////////////////////////////////////////////////////////
+
+    namespace deprecated {
+        struct Stretchy_Buffer
+        {
+            size_t capacity;
+            size_t size;
+            char *data;
+
+            void push(const char *that_data, size_t that_size)
+            {
+                if (size + that_size > capacity) {
+                    capacity = 2 * capacity + that_size;
+                    data = (char*)realloc((void*)data, capacity);
+                }
+
+                memcpy(data + size, that_data, that_size);
+                size += that_size;
+            }
+
+            template <typename T>
+            void push(T x)
+            {
+                push((char*) &x, sizeof(x));
+            }
+        };
+    }
+
+    using Stretchy_Buffer [[deprecated("Use Dynamic_Array instead. Stretchy_Buffer is limited to only `char`-s while Dynamic_Array<T> can work with any type T.")]] = deprecated::Stretchy_Buffer;
+
+    [[deprecated("Use Dynamic_Array instead. Stretchy_Buffer is limited to only `char`-s while Dynamic_Array<T> can work with any type T.")]]
+    void print1(FILE *stream, deprecated::Stretchy_Buffer buffer)
     {
         fwrite(buffer.data, 1, buffer.size, stream);
     }
@@ -472,7 +535,13 @@ namespace aids
         int argc;
         char **argv;
 
+        [[deprecated("Use Args::shift() instead. It was decided to rename `pop` to `shift` since it creates confusion with the pop operation of stacks which removes the elements from the other end. And shift is common operation in Bash and Perl (probably others) for parsing command line arguments.")]]
         char *pop()
+        {
+            return shift();
+        }
+
+        char *shift()
         {
             char *result = *argv;
             argv += 1;
@@ -544,6 +613,15 @@ namespace aids
             buffer->data + buffer->size,
             buffer->capacity - buffer->size,
             "%llu", x);
+        buffer->size = min(buffer->size + n, buffer->capacity - 1);
+    }
+
+    void sprint1(String_Buffer *buffer, unsigned int x)
+    {
+        int n = snprintf(
+            buffer->data + buffer->size,
+            buffer->capacity - buffer->size,
+            "%u", x);
         buffer->size = min(buffer->size + n, buffer->capacity - 1);
     }
 
@@ -632,6 +710,11 @@ namespace aids
         sprint1(buffer, another_buffer.view());
     }
 
+    struct Escape
+    {
+        String_View unwrap;
+    };
+
     ////////////////////////////////////////////////////////////
     // PRINT
     ////////////////////////////////////////////////////////////
@@ -707,6 +790,33 @@ namespace aids
     {
         (print1(stream, args), ...);
         print1(stream, '\n');
+    }
+
+    template <typename T, typename... Args>
+    T unwrap_or_panic(Maybe<T> maybe, Args... args)
+    {
+        if (!maybe.has_value) {
+            println(stderr, args...);
+            exit(1);
+        }
+
+        return maybe.unwrap;
+    }
+
+    void print1(FILE *stream, Escape escape)
+    {
+        for (size_t i = 0; i < escape.unwrap.count; ++i) {
+            switch (escape.unwrap.data[i]) {
+            case '\a': print(stream, "\\a"); break;
+            case '\b': print(stream, "\\b"); break;
+            case '\f': print(stream, "\\f"); break;
+            case '\n': print(stream, "\\n"); break;
+            case '\r': print(stream, "\\r"); break;
+            case '\t': print(stream, "\\t"); break;
+            case '\v': print(stream, "\\v"); break;
+            default: print(stream, escape.unwrap.data[i]);
+            }
+        }
     }
 
     void print1(FILE *stream, Pad pad)
