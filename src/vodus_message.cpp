@@ -171,8 +171,39 @@ struct Message_Buffer
 
 Timestamp chop_timestamp(String_View *input)
 {
-    assert(0 && "TODO: chop_timestamp is not implemented");
-    return 0;
+    input->chop_by_delim('[');
+    auto raw_timestamp = input->chop_by_delim(']').trim();
+
+    // TODO: message parsing should give more precise position of the syntax errors
+    auto hours = unwrap_or_panic(
+        raw_timestamp.chop_by_delim(':').trim().as_integer<uint64_t>(),
+        "Incorrect timestamp. Hours must be a number.");
+
+    auto minutes = unwrap_or_panic(
+        raw_timestamp.chop_by_delim(':').trim().as_integer<uint64_t>(),
+        "Incorrect timestamp. Minutes must be a number.");
+
+    auto seconds = unwrap_or_panic(
+        raw_timestamp.chop_by_delim('.').trim().as_integer<uint64_t>(),
+        "Incorrect timestamp. Seconds must be a number");
+
+    auto mseconds = 0;
+
+    if (raw_timestamp.count > 0) {
+        for (size_t i = 0; i < 3; ++i) {
+            if (i < raw_timestamp.count) {
+                if (isdigit(raw_timestamp.data[i])) {
+                    mseconds = mseconds * 10 + raw_timestamp.data[i] - '0';
+                } else {
+                    panic("Incorrect timestamp. Milliseconds must be a number");
+                }
+            } else {
+                mseconds *= 10;
+            }
+        }
+    }
+
+    return (hours * 60 * 60 + minutes * 60 + seconds) * 1000 + mseconds;
 }
 
 String_View chop_nickname(String_View *input)
