@@ -18,23 +18,23 @@ int main(int argc, char *argv[])
     const char *actual_filepath = NULL;
     float threshold = 10.0f;
 
-    args.pop();
+    args.shift();
     while (!args.empty()) {
-        auto flag = cstr_as_string_view(args.pop());
+        auto flag = cstr_as_string_view(args.shift());
         if (flag == "-e"_sv) {
             if (args.empty()) {
                 println(stderr, "No argument for flag `", flag, "`");
                 usage(stderr);
                 exit(1);
             }
-            expected_filepath = args.pop();
+            expected_filepath = args.shift();
         } else if (flag == "-a"_sv) {
             if (args.empty()) {
                 println(stderr, "No argument for flag `", flag, "`");
                 usage(stderr);
                 exit(1);
             }
-            actual_filepath = args.pop();
+            actual_filepath = args.shift();
         } else if (flag == "-t"_sv) {
             if (args.empty()) {
                 println(stderr, "No argument for flag `", flag, "`");
@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            const auto threshold_sv = cstr_as_string_view(args.pop());
+            const auto threshold_sv = cstr_as_string_view(args.shift());
             const auto maybe_threshold = threshold_sv.as_float();
             if (!maybe_threshold.has_value) {
                 println(stderr, threshold_sv, " is not a float");

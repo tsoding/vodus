@@ -38,7 +38,6 @@ void print1(FILE *stream, Video_Params params)
     println(stream, "    .bitrate = ", params.bitrate);
     println(stream, "    .font = ", params.font);
     println(stream, "    .message_limit = ", params.messages_limit);
-    println(stream, "    .message_regex = ", params.message_regex);
     print(stream, "}");
 }
 
@@ -55,8 +54,6 @@ Video_Params default_video_params() {
     params.bitrate           = 400'000;
     params.font              = ""_sv;
     params.messages_limit    = {};
-
-    params.message_regex     = "\\[(?<hours>\\d+):(?<minutes>\\d+):(?<seconds>\\d+)(\\.(?<milliseconds>\\d+))?\\] \\<(?<nickname>.+?)\\> (?<message>.*)"_sv;
     return params;
 }
 
@@ -174,8 +171,6 @@ void patch_video_params_from_flag(Video_Params *params, String_View flag, String
         params->font = value;
     } else if (flag == "messages_limit"_sv || flag == "messages-limit"_sv) {
         params->messages_limit = {true, parse_integer_flag<size_t>(flag, value)};
-    } else if (flag == "message_regex"_sv || flag == "message-regex"_sv) {
-        params->message_regex = value;
     } else if (flag == "output_type"_sv || flag == "output-type"_sv) {
         if (value == "video"_sv) {
             params->output_type = Output_Type::Video;
@@ -211,7 +206,7 @@ void patch_video_params_from_flag(Video_Params *params, String_View flag, String
 void patch_video_params_from_args(Video_Params *params, Args *args)
 {
     while (!args->empty()) {
-        auto flag = cstr_as_string_view(args->pop());
+        auto flag = cstr_as_string_view(args->shift());
         flag.chop(2);
 
         if (args->empty()) {
@@ -219,7 +214,7 @@ void patch_video_params_from_args(Video_Params *params, Args *args)
             usage(stderr);
             abort();
         }
-        auto value = cstr_as_string_view(args->pop());
+        auto value = cstr_as_string_view(args->shift());
 
         if (flag == "config"_sv) {
             patch_video_params_from_file(params, value);

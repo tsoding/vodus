@@ -67,21 +67,21 @@ void sample_chat_log_animation(Message *messages,
 int main(int argc, char *argv[])
 {
     Args args = {argc, argv};
-    args.pop();                 // skip program name;
+    args.shift();                 // skip program name;
 
     if (args.empty()) {
         println(stderr, "[ERROR] Input filename is not provided");
         usage(stderr);
         abort();
     }
-    const char *input_filepath = args.pop();
+    const char *input_filepath = args.shift();
 
     if (args.empty()) {
         println(stderr, "[ERROR] Output filename is not provided");
         usage(stderr);
         abort();
     }
-    const char *output_filepath = args.pop();
+    const char *output_filepath = args.shift();
 
     Video_Params params = default_video_params();
     patch_video_params_from_args(&params, &args);

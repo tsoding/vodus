@@ -7,9 +7,6 @@
 
 #include <algorithm>
 
-#define PCRE2_CODE_UNIT_WIDTH 8
-#include <pcre2.h>
-
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <gif_lib.h>

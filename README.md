@@ -15,7 +15,7 @@ changed at any moment or stop working at all.**
 #### Debian
 
 ```console
-$ sudo apt-get install nasm libfreetype6-dev libcurl4-openssl-dev libpcre2-dev
+$ sudo apt-get install nasm libfreetype6-dev libcurl4-openssl-dev
 ```
 
 #### NixOS

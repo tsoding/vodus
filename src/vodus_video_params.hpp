@@ -21,7 +21,6 @@ struct Video_Params
     int bitrate;
     String_View font;
     Maybe<size_t> messages_limit;
-    String_View message_regex;
 };
 
 String_View param_names[] = {
