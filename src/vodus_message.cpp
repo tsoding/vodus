@@ -174,7 +174,7 @@ Timestamp chop_timestamp(String_View *input)
     input->chop_by_delim('[');
     auto raw_timestamp = input->chop_by_delim(']').trim();
 
-    // TODO: message parsing should give more precise position of the syntax errors
+    // TODO(#153): message parsing should give more precise position of the syntax errors
     auto hours = unwrap_or_panic(
         raw_timestamp.chop_by_delim(':').trim().as_integer<uint64_t>(),
         "Incorrect timestamp. Hours must be a number.");
