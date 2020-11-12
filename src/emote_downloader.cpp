@@ -561,7 +561,6 @@ int main(int argc, char **argv)
 
     size_t transfers = 0;
     for (transfers = 0; transfers < min(downloads.size, MAX_PARALLEL); ++transfers) {
-        println(stdout, "Scheduling ", downloads.elements[transfers].url);
         add_download_to_multi_handle(downloads.elements[transfers], cm);
     }
 
