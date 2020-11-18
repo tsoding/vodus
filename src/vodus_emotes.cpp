@@ -208,7 +208,7 @@ struct Emote_Cache
             abort();
         }
 
-        // TODO: Emote_Cache::populate_from_file should crash if we don't have enough emote capacity
+        // TODO(#157): Emote_Cache::populate_from_file should crash if we don't have enough emote capacity
         while (mapping_csv.unwrap.count > 0 && emote_mapping_count < EMOTE_MAPPING_CAPACITY) {
             auto line = mapping_csv.unwrap.chop_by_delim('\n');
             auto name = line.chop_by_delim(',');
