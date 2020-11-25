@@ -89,7 +89,7 @@ struct Emote
     }
 };
 
-const size_t EMOTE_MAPPING_CAPACITY = 1021;
+const size_t EMOTE_MAPPING_CAPACITY = 5000;
 const size_t EMOTE_GIFS_CAPACITY = EMOTE_MAPPING_CAPACITY;
 
 String_View file_extension(String_View filename)
@@ -208,6 +208,7 @@ struct Emote_Cache
             abort();
         }
 
+        // TODO(#157): Emote_Cache::populate_from_file should crash if we don't have enough emote capacity
         while (mapping_csv.unwrap.count > 0 && emote_mapping_count < EMOTE_MAPPING_CAPACITY) {
             auto line = mapping_csv.unwrap.chop_by_delim('\n');
             auto name = line.chop_by_delim(',');

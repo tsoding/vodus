@@ -597,5 +597,8 @@ int main(int argc, char **argv)
         if(still_alive) curl_multi_wait(cm, NULL, 0, 1000, NULL);
     } while (still_alive || (transfers < downloads.size));
 
+    // TODO(#156): emote_downloader should download and setup the twitter emoji pack
+    // Twitter Emoji Pack: https://twemoji.twitter.com/
+
     return 0;
 }
