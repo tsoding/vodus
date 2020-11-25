@@ -167,20 +167,22 @@ struct Emote_Cache
 {
     Maybe<Emote> emote_by_name(String_View name, size_t size)
     {
-        size_t i = djb2(name) % EMOTE_MAPPING_CAPACITY;
-        while (emote_mapping[i].name != name && emote_mapping[i].name.count != 0) {
-            i = (i + 1) % EMOTE_MAPPING_CAPACITY;
-        }
-
-        if (emote_mapping[i].name.count != 0) {
-            if (!emote_mapping[i].emote.has_value) {
-                emote_mapping[i].emote = {true, load_emote(emote_mapping[i].filepath, size)};
-                if (emote_mapping[i].emote.unwrap.type == Emote::Gif) {
-                    gifs[gifs_count++] = &emote_mapping[i].emote.unwrap.gif;
+        auto mapping = emote_mapping.get(name);
+        if (mapping.has_value) {
+            if (!mapping.unwrap->emote.has_value) {
+                mapping.unwrap->emote = {true, load_emote(mapping.unwrap->filepath, size)};
+                if (mapping.unwrap->emote.unwrap.type == Emote::Gif) {
+                    // NOTE: storing the pointer to a bucket in the
+                    // Hash_Map is dangerous because it could be
+                    // invalidated when you insert into the
+                    // Hash_Map. The only reason this works is that we
+                    // don't insert into the Hash_Map after
+                    // populate_from_file().
+                    gifs.push(&mapping.unwrap->emote.unwrap.gif);
                 }
             }
 
-            return emote_mapping[i].emote;
+            return mapping.unwrap->emote;
         }
 
         return {};
@@ -195,8 +197,8 @@ struct Emote_Cache
         // glitch that happens every 11 days of the video (please
         // update this estimate if you update GLOBAL_TIME_SEC).
         global_time_sec = fmodf(global_time_sec + delta_time, GLOBAL_TIME_PERIOD);
-        for (size_t i = 0; i < gifs_count; ++i) {
-            gifs[i]->update_global_time((int) floorf(global_time_sec * 100.0f));
+        for (size_t i = 0; i < gifs.size; ++i) {
+            gifs.data[i]->update_global_time((int) floorf(global_time_sec * 100.0f));
         }
     }
 
@@ -208,27 +210,20 @@ struct Emote_Cache
             abort();
         }
 
-        // TODO(#157): Emote_Cache::populate_from_file should crash if we don't have enough emote capacity
-        while (mapping_csv.unwrap.count > 0 && emote_mapping_count < EMOTE_MAPPING_CAPACITY) {
+        while (mapping_csv.unwrap.count > 0) {
             auto line = mapping_csv.unwrap.chop_by_delim('\n');
             auto name = line.chop_by_delim(',');
             auto filename = line;
 
-            size_t i = djb2(name) % EMOTE_MAPPING_CAPACITY;
-            while (emote_mapping[i].name.count != 0) {
-                i = (i + 1) % EMOTE_MAPPING_CAPACITY;
-            }
-
-            emote_mapping[i].filepath = filename;
-            emote_mapping[i].emote = {};
-            emote_mapping[i].name = name;
-            emote_mapping_count += 1;
+            Emote_Mapping mapping = {};
+            mapping.filepath = filename;
+            mapping.emote = {};
+            mapping.name = name;
+            emote_mapping.insert(name, mapping);
         }
     }
 
-    Emote_Mapping emote_mapping[EMOTE_MAPPING_CAPACITY] = {};
-    size_t emote_mapping_count = 0;
-    Gif_Animat *gifs[EMOTE_GIFS_CAPACITY] = {};
-    size_t gifs_count = 0;
+    Hash_Map<String_View, Emote_Mapping> emote_mapping;
+    Dynamic_Array<Gif_Animat*> gifs;
     float global_time_sec = 0.0f;
 };
