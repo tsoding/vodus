@@ -21,7 +21,7 @@
 //
 // ============================================================
 //
-// aids — 0.28.0 — std replacement for C++. Designed to aid developers
+// aids — 0.30.0 — std replacement for C++. Designed to aid developers
 // to a better programming experience.
 //
 // https://github.com/rexim/aids
@@ -30,6 +30,8 @@
 //
 // ChangeLog (https://semver.org/ is implied)
 //
+//   0.30.0 String_View String_View::chop_while(Predicate_Char predicate)
+//   0.29.0 void destroy(Dynamic_Array<T> dynamic_array)
 //   0.28.0 struct Hash_Map
 //   0.27.0 NEVER HAPPENED
 //   0.26.0 panic() is marked with [[noreturn]] attribute
@@ -273,6 +275,20 @@ namespace aids
             count += n;
         }
 
+        using Predicate_Char = bool (*)(char);
+
+        String_View chop_while(Predicate_Char predicate)
+        {
+            size_t size = 0;
+            while (size < count && predicate(data[size])) {
+                size += 1;
+            }
+
+            auto result = subview(0, size);
+            chop(size);
+            return result;
+        }
+
         String_View chop_by_delim(char delim)
         {
             assert(data);
@@ -503,6 +519,14 @@ namespace aids
             return false;
         }
     };
+
+    template <typename T>
+    void destroy(Dynamic_Array<T> dynamic_array)
+    {
+        if (dynamic_array.data) {
+            free(dynamic_array.data);
+        }
+    }
 
     ////////////////////////////////////////////////////////////
     // STRETCHY BUFFER
@@ -1058,7 +1082,6 @@ namespace aids
             Value value;
         };
 
-        // TODO: Maybe<Bucket> *buckets
         Maybe<Bucket> *buckets;
         size_t capacity;
         size_t size;
