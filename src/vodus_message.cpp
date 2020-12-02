@@ -171,10 +171,9 @@ struct Message_Buffer
 
 Timestamp chop_timestamp(const char *input_filepath,
                          size_t line_number,
-                         String_View *input)
+                         String_View *input,
+                         String_View origin_input)
 {
-    const auto origin_input = *input;
-
     auto syntax_panic = [&] (auto ...args) {
         panic(input_filepath, ":", line_number, ":", input->data - origin_input.data + 1, ": ",
               args...);
@@ -232,10 +231,30 @@ Timestamp chop_timestamp(const char *input_filepath,
     return (hours * 60 * 60 + minutes * 60 + seconds) * 1000 + mseconds;
 }
 
-String_View chop_nickname(String_View *input)
+String_View chop_nickname(const char *input_filepath,
+                          size_t line_number,
+                          String_View *input,
+                          String_View origin_input)
 {
-    input->chop_by_delim('<');
-    auto nickname = input->chop_by_delim('>');
+    auto syntax_panic = [&] (auto ...args) {
+        panic(input_filepath, ":", line_number, ":", input->data - origin_input.data + 1, ": ",
+              args...);
+    };
+
+    auto expect_char = [&](char x) {
+        if (input->count == 0 || *input->data != x) {
+            syntax_panic("Expected `", x, "`");
+        }
+        input->chop(1);
+    };
+
+    *input = input->trim_begin();
+    expect_char('<');
+    auto nickname = input->chop_while([](char x) -> bool {
+        return x != '>';
+    });
+    expect_char('>');
+
     return nickname;
 }
 
@@ -261,10 +280,11 @@ size_t parse_messages_from_string_view(String_View input,
          input.count > 0 && messages_size < expected_messages_size;
          ++line_number)
     {
-        String_View message = input.chop_by_delim('\n');
+        String_View origin_message = input.chop_by_delim('\n');
+        String_View message = origin_message;
 
-        (*messages)[messages_size].timestamp = chop_timestamp(input_filepath, line_number, &message);
-        (*messages)[messages_size].nickname  = chop_nickname(&message);
+        (*messages)[messages_size].timestamp = chop_timestamp(input_filepath, line_number, &message, origin_message);
+        (*messages)[messages_size].nickname  = chop_nickname(input_filepath, line_number, &message, origin_message);
         (*messages)[messages_size].message   = chop_message(&message);
         messages_size++;
     }
