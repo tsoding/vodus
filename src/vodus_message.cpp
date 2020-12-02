@@ -169,47 +169,92 @@ struct Message_Buffer
     }
 };
 
-Timestamp chop_timestamp(String_View *input)
+Timestamp chop_timestamp(const char *input_filepath,
+                         size_t line_number,
+                         String_View *input,
+                         String_View origin_input)
 {
-    input->chop_by_delim('[');
-    auto raw_timestamp = input->chop_by_delim(']').trim();
+    auto syntax_panic = [&] (auto ...args) {
+        panic(input_filepath, ":", line_number, ":", input->data - origin_input.data + 1, ": ",
+              args...);
+    };
 
-    // TODO(#153): message parsing should give more precise position of the syntax errors
-    auto hours = unwrap_or_panic(
-        raw_timestamp.chop_by_delim(':').trim().as_integer<uint64_t>(),
-        "Incorrect timestamp. Hours must be a number.");
+    auto unwrap_or_syntax_panic = [&] (auto maybe, auto ...args) {
+        if (!maybe.has_value) {
+            syntax_panic(args...);
+        }
 
-    auto minutes = unwrap_or_panic(
-        raw_timestamp.chop_by_delim(':').trim().as_integer<uint64_t>(),
-        "Incorrect timestamp. Minutes must be a number.");
+        return maybe.unwrap;
+    };
 
-    auto seconds = unwrap_or_panic(
-        raw_timestamp.chop_by_delim('.').trim().as_integer<uint64_t>(),
-        "Incorrect timestamp. Seconds must be a number");
+    auto is_digit = [](char x) -> bool {
+        return isdigit(x);
+    };
 
-    auto mseconds = 0;
+    auto expect_char = [&](char x) {
+        if (input->count == 0 || *input->data != x) {
+            syntax_panic("Expected `", x, "`");
+        }
+        input->chop(1);
+    };
 
-    if (raw_timestamp.count > 0) {
+    auto expect_number = [&]() -> uint64_t {
+        return unwrap_or_syntax_panic(
+            input->chop_while(is_digit).as_integer<uint64_t>(),
+            "Expected number");
+    };
+
+    *input = input->trim_begin();
+
+    expect_char('[');
+    auto hours = expect_number();
+    expect_char(':');
+    auto minutes = expect_number();
+    expect_char(':');
+    auto seconds = expect_number();
+
+    Timestamp mseconds = 0;
+    if (input->count > 0 && *input->data == '.') {
+        input->chop(1);
+        auto mseconds_str = input->chop_while(is_digit);
         for (size_t i = 0; i < 3; ++i) {
-            if (i < raw_timestamp.count) {
-                if (isdigit(raw_timestamp.data[i])) {
-                    mseconds = mseconds * 10 + raw_timestamp.data[i] - '0';
-                } else {
-                    panic("Incorrect timestamp. Milliseconds must be a number");
-                }
+            if (i < mseconds_str.count) {
+                mseconds = mseconds * 10 + mseconds_str.data[i] - '0';
             } else {
                 mseconds *= 10;
             }
         }
     }
 
+    expect_char(']');
+
     return (hours * 60 * 60 + minutes * 60 + seconds) * 1000 + mseconds;
 }
 
-String_View chop_nickname(String_View *input)
+String_View chop_nickname(const char *input_filepath,
+                          size_t line_number,
+                          String_View *input,
+                          String_View origin_input)
 {
-    input->chop_by_delim('<');
-    auto nickname = input->chop_by_delim('>');
+    auto syntax_panic = [&] (auto ...args) {
+        panic(input_filepath, ":", line_number, ":", input->data - origin_input.data + 1, ": ",
+              args...);
+    };
+
+    auto expect_char = [&](char x) {
+        if (input->count == 0 || *input->data != x) {
+            syntax_panic("Expected `", x, "`");
+        }
+        input->chop(1);
+    };
+
+    *input = input->trim_begin();
+    expect_char('<');
+    auto nickname = input->chop_while([](char x) -> bool {
+        return x != '>';
+    });
+    expect_char('>');
+
     return nickname;
 }
 
@@ -235,10 +280,11 @@ size_t parse_messages_from_string_view(String_View input,
          input.count > 0 && messages_size < expected_messages_size;
          ++line_number)
     {
-        String_View message = input.chop_by_delim('\n');
+        String_View origin_message = input.chop_by_delim('\n');
+        String_View message = origin_message;
 
-        (*messages)[messages_size].timestamp = chop_timestamp(&message);
-        (*messages)[messages_size].nickname  = chop_nickname(&message);
+        (*messages)[messages_size].timestamp = chop_timestamp(input_filepath, line_number, &message, origin_message);
+        (*messages)[messages_size].nickname  = chop_nickname(input_filepath, line_number, &message, origin_message);
         (*messages)[messages_size].message   = chop_message(&message);
         messages_size++;
     }
